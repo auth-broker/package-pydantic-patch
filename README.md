@@ -1,8 +1,8 @@
 <div align="center">
 
-# Python Package Template
+# PATCH for Pydantic
 
-The template repository for creating python packages, shared across auth-broker.
+Python Pydantic support of TypeScript-style utility types, including Partial, Required, Pick, and Omit. Useful for PATCH endpoints driven from BaseModel / SQLModel classes.
 
 ![Python](https://img.shields.io/badge/Python-3.12-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 ![UV](https://img.shields.io/badge/UV-Fast-6E40C9?style=for-the-badge)
@@ -23,20 +23,6 @@ The template repository for creating python packages, shared across auth-broker.
 
 ______________________________________________________________________
 
-## Template Checklist
-
-- [ ] Rename module `src/ab_core/template` ->
-  `src/ab_core/your_package_name`
-- [ ] Rename tests module `src/ab_core/template` ->
-  `src/ab_core/your_package_name`
-- [ ] Update `pyproject.toml`: `[project]` section based on your package name
-  / versioning etc.
-- [ ] Update `README.md` references of `python-package-template` ->
-  `your-package-name`
-- [ ] Remove this section
-
-______________________________________________________________________
-
 ## Table of Contents
 
 <!-- toc -->
@@ -54,10 +40,25 @@ ______________________________________________________________________
 
 ## Introduction
 
-This template repository aims to create a reusable package template which
-streamlines the creation and publishing of isolated python packages in auth-broker.
-This is aligned with the engineering vision @ auth-broker for better modularisation and
-reusability of code.
+Python is missing a key feature of modern day dynamic programming languages.
+
+Namely, TypeScript supports these utility types: https://www.typescriptlang.org/docs/handbook/utility-types.html
+
+* Partial<T>: Makes all properties in type T optional. Useful for update forms or search filters where you only provide a subset of fields. [5, 6, 7] 
+* Required<T>: The opposite of Partial; it makes all properties in type T mandatory, even if they were originally optional. [7, 8, 9] 
+* Pick<T, K>: Creates a new type by selecting a specific set of keys K from type T. Use this when you only need a small, focused subset of a larger object. [10, 11, 12] 
+* Omit<T, K>: The opposite of Pick; it creates a new type by removing specific keys K from type T. Use this when you want most of an object but need to strip out sensitive data (like passwords) or internal IDs. [1, 7, 13, 14, 15] 
+
+Because of this missing support in python, developers are often encouraged to duplicate their models & field definitions between their API and ORM
+definitions, which becomes a really tedious and feels like it involves double handling.
+
+Especially for PATCH endpoints when we want to update something, should we really need to manually redefine the schema? Especially
+with larger nested JSON schemas, and even with Discriminated Unions, it becomes a really cumbersome and limited chore a developer
+must do to separate the API schema from their application models, when there is almost always an overlap in structure and field definitions.
+
+This is the motivation behind building "PATCH for Pydantic".
+
+Ultimately, with the really mature pydantic library, it actually makes building a package like this not too complicated.
 
 ______________________________________________________________________
 
@@ -71,14 +72,14 @@ Here are a list of available commands via make.
 ### Bare Metal (i.e. your machine)
 
 1. `make install` - install the required dependencies.
-1. `make test` - runs the tests.
+2. `make test` - runs the tests.
 
 ### Docker
 
 1. `make build-docker` - build the docker image.
-1. `make run-docker` - run the docker compose services.
-1. `make test-docker` - run the tests in docker.
-1. `make clean-docker` - remove all docker containers etc.
+2. `make run-docker` - run the docker compose services.
+3. `make test-docker` - run the tests in docker.
+4. `make clean-docker` - remove all docker containers etc.
 
 ______________________________________________________________________
 
@@ -183,7 +184,7 @@ ensuring main is always looking clean.
 You can manually use these commands too:
 
 1. `make lint` - check for linting issues.
-1. `make format` - fix linting issues.
+2. `make format` - fix linting issues.
 
 ______________________________________________________________________
 
@@ -195,8 +196,8 @@ We publish to PyPI using Github releases. Steps are as follows:
 
 1. Manually update the version in `pyproject.toml` file using a PR and merge to
    main. Use `uv version --bump {patch/minor/major}` to update the version.
-1. Create a new release in Github with the tag name as the version number. This
+2. Create a new release in Github with the tag name as the version number. This
    will trigger the `publish` workflow. In the Release window, type in the
    version number and it will prompt to create a new tag.
-1. Verify the release in
+3. Verify the release in
    [PyPI](https://pypi.org/project/python-package-template/)

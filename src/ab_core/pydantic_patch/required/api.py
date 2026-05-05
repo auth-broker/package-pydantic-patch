@@ -1,7 +1,5 @@
 """Public Required API."""
 
-
-
 from collections.abc import Collection
 from typing import Generic, TypeVar, cast
 

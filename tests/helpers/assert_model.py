@@ -1,5 +1,3 @@
-
-
 from typing import Any, get_args, get_origin
 
 from deepdiff import DeepDiff
@@ -25,10 +23,12 @@ def assert_model_equivalent(
 
     exclude_regex_paths = []
     if ignore_title:
-        exclude_regex_paths.extend([
-            r"root\['title'\]",
-            r"root\['\$defs'\]\['.*'\]\['title'\]",
-        ])
+        exclude_regex_paths.extend(
+            [
+                r"root\['title'\]",
+                r"root\['\$defs'\]\['.*'\]\['title'\]",
+            ]
+        )
 
     diff = DeepDiff(
         expected_schema,

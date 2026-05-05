@@ -1,7 +1,5 @@
-
-
 from datetime import datetime
-from typing import Annotated, Literal, get_args, get_origin
+from typing import Annotated, Literal
 
 import pytest
 from pydantic import BaseModel, Discriminator
@@ -119,7 +117,6 @@ class MixedUnionPayload(BaseModel):
 
 
 @pytest.fixture
-
 def models():
     return {
         "User": User,
@@ -222,7 +219,6 @@ class AddressRequiredIdExpected(BaseModel):
 
 
 @pytest.fixture
-
 def expected_models():
     return {
         "UserNameEmailPickExpected": UserNameEmailPickExpected,

@@ -1,7 +1,6 @@
-
+from tests.helpers.assert_model import assert_optional, assert_required, get_list_item_type
 
 from ab_core.pydantic_patch.patch import PatchConfig, create_patch_model
-from tests.helpers.assert_model import assert_optional, assert_required, get_list_item_type
 
 
 def test_patch_quote_line_items_and_benchmark_matches(models):

@@ -1,9 +1,7 @@
 """Patch aggregation implementation."""
 
-
-
 from collections.abc import Collection
-from functools import lru_cache
+from functools import cache
 
 from pydantic import BaseModel
 
@@ -51,9 +49,7 @@ def apply_patch_payload(
 
     if config.include is not None:
         payload = {
-            field_name: field_payload
-            for field_name, field_payload in payload.items()
-            if field_name in config.include
+            field_name: field_payload for field_name, field_payload in payload.items() if field_name in config.include
         }
 
     if config.exclude:
@@ -96,9 +92,7 @@ def apply_patch_scope_payload(
 
     if config.include is not None:
         payload = {
-            field_name: field_payload
-            for field_name, field_payload in payload.items()
-            if field_name in config.include
+            field_name: field_payload for field_name, field_payload in payload.items() if field_name in config.include
         }
 
     if config.exclude:
@@ -184,7 +178,7 @@ def create_patch_model(
     return _create_patch_model_cached(make_patch_cache_key(model, config, name), model, config, name)
 
 
-@lru_cache(maxsize=None)
+@cache
 def _create_patch_model_cached(
     cache_key: OperationCacheKey,
     model: type[BaseModel],

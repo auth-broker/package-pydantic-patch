@@ -1,10 +1,8 @@
 """Pydantic create_model payload helpers."""
 
-
-
 from typing import Any
 
-from pydantic import BaseModel, Field, create_model
+from pydantic import BaseModel, create_model
 from pydantic.fields import FieldInfo, PydanticUndefined
 
 CreateModelPayload = dict[str, tuple[Any, Any]]

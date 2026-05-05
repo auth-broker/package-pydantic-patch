@@ -1,7 +1,5 @@
 """Pick operation implementation."""
 
-
-
 from collections.abc import Collection
 
 from pydantic import BaseModel
@@ -28,11 +26,7 @@ def apply_pick_payload(
     if config.fields is None:
         return payload
 
-    return {
-        field_name: field_payload
-        for field_name, field_payload in payload.items()
-        if field_name in config.fields
-    }
+    return {field_name: field_payload for field_name, field_payload in payload.items() if field_name in config.fields}
 
 
 def make_pick_cache_key(

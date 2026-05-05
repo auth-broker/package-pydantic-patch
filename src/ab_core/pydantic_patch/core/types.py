@@ -1,7 +1,5 @@
 """Typing helpers for recursive model transformation."""
 
-
-
 import types as py_types
 from functools import reduce
 from operator import or_

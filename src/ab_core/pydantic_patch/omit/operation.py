@@ -1,7 +1,5 @@
 """Omit operation implementation."""
 
-
-
 from collections.abc import Collection
 
 from pydantic import BaseModel
@@ -29,9 +27,7 @@ def apply_omit_payload(
         return payload
 
     return {
-        field_name: field_payload
-        for field_name, field_payload in payload.items()
-        if field_name not in config.fields
+        field_name: field_payload for field_name, field_payload in payload.items() if field_name not in config.fields
     }
 
 

@@ -1,7 +1,5 @@
 """Cache-key helpers for generated pydantic_patch models."""
 
-
-
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal

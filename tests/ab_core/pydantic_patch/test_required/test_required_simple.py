@@ -1,10 +1,8 @@
-
-
 import pytest
+from tests.helpers.assert_model import assert_model_equivalent, assert_optional, assert_required
 
 from ab_core.pydantic_patch.core.errors import InvalidPatchFieldError
 from ab_core.pydantic_patch.required import Required, create_required_model
-from tests.helpers.assert_model import assert_model_equivalent, assert_optional, assert_required
 
 
 def test_required_user_id(models, expected_models):

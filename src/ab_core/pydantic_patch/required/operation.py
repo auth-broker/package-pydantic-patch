@@ -1,7 +1,5 @@
 """Required operation implementation."""
 
-
-
 from collections.abc import Collection
 
 from pydantic import BaseModel
@@ -34,9 +32,7 @@ def apply_required_payload(
         return payload
 
     return {
-        field_name: make_field_required(annotation, default)
-        if field_name in config.fields
-        else (annotation, default)
+        field_name: make_field_required(annotation, default) if field_name in config.fields else (annotation, default)
         for field_name, (annotation, default) in payload.items()
     }
 

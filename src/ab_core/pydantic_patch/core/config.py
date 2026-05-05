@@ -1,7 +1,5 @@
 """Shared config helpers."""
 
-
-
 from collections.abc import Collection
 from typing import TypeAlias
 

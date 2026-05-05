@@ -1,7 +1,5 @@
 """Partial operation implementation."""
 
-
-
 from collections.abc import Collection
 
 from pydantic import BaseModel

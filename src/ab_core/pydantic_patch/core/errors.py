@@ -1,8 +1,6 @@
 """Errors raised by pydantic_patch."""
 
 
-
-
 class PydanticPatchError(Exception):
     """Base exception for pydantic_patch errors."""
 

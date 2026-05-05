@@ -1,7 +1,5 @@
 """Required configuration."""
 
-
-
 from pydantic import BaseModel, ConfigDict, Field
 
 from ab_core.pydantic_patch.core.config import normalise_fields

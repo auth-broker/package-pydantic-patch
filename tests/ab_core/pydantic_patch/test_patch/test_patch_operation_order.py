@@ -1,10 +1,8 @@
-
-
 import pytest
+from tests.helpers.assert_model import assert_field_names, assert_optional, assert_required
 
 from ab_core.pydantic_patch.core.errors import ConflictingPatchConfigError
 from ab_core.pydantic_patch.patch import PatchConfig, create_patch_model
-from tests.helpers.assert_model import assert_field_names, assert_optional, assert_required
 
 
 def test_patch_include_then_exclude(models):

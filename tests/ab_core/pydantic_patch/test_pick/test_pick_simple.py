@@ -1,10 +1,8 @@
-
-
 import pytest
+from tests.helpers.assert_model import assert_field_names, assert_model_equivalent
 
 from ab_core.pydantic_patch.core.errors import InvalidPatchFieldError
 from ab_core.pydantic_patch.pick import Pick, create_pick_model
-from tests.helpers.assert_model import assert_field_names, assert_model_equivalent
 
 
 @pytest.mark.parametrize(

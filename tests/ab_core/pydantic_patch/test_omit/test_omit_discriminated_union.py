@@ -1,5 +1,3 @@
-
-
 import pytest
 
 from ab_core.pydantic_patch.core.errors import InvalidDiscriminatorError

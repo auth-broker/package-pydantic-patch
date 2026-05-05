@@ -1,16 +1,13 @@
 """Shared recursive model transformation engine."""
 
-
-
 from collections.abc import Callable, Mapping
-from functools import lru_cache
+from functools import cache
 from typing import Any, Protocol, get_args, get_origin
 
 from pydantic import BaseModel
 
 from ab_core.pydantic_patch.core.cache import OperationCacheKey
 from ab_core.pydantic_patch.core.errors import InvalidDiscriminatorError
-from ab_core.pydantic_patch.core.fields import validate_fields_exist_in_payload
 from ab_core.pydantic_patch.core.payload import (
     CreateModelPayload,
     build_payload_from_model,
@@ -68,7 +65,7 @@ def transform_model(
     )
 
 
-@lru_cache(maxsize=None)
+@cache
 def _transform_model_cached(
     cache_key: OperationCacheKey,
     source_model: type[BaseModel],
@@ -296,8 +293,7 @@ def transform_discriminated_union(
 
         if discriminator_key not in variant.model_fields:
             raise InvalidDiscriminatorError(
-                f"Discriminator field {discriminator_key!r} is missing from "
-                f"variant {variant.__name__}."
+                f"Discriminator field {discriminator_key!r} is missing from variant {variant.__name__}."
             )
 
         child_config = child_models.get(variant)

@@ -104,19 +104,9 @@ app = FastAPI(lifespan=lifespan)
 
 
 # =========================
-# API
+# UPDATE HELPERS
 # =========================
 
-@app.get("/households", response_model=Household)
-def get_household(
-    db_session: Annotated[Session, FDepends(db_session_sync)],
-) -> Household:
-    household = db_session.get(Household, ENTITY_ID)
-
-    if household is None:
-        raise HTTPException(status_code=404, detail="Household not found")
-
-    return household
 
 def apply_scalar_patch(instance: SQLModel, data: Mapping[str, object]) -> None:
     for field_name, value in data.items():
@@ -143,6 +133,23 @@ def apply_child_list_patch(
             )
 
         apply_scalar_patch(child, item_data)
+
+
+# =========================
+# API
+# =========================
+
+
+@app.get("/households", response_model=Household)
+def get_household(
+    db_session: Annotated[Session, FDepends(db_session_sync)],
+) -> Household:
+    household = db_session.get(Household, ENTITY_ID)
+
+    if household is None:
+        raise HTTPException(status_code=404, detail="Household not found")
+
+    return household
 
 
 @app.patch("/households", response_model=Household)

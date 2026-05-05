@@ -1,8 +1,8 @@
 """Pydantic create_model payload helpers."""
 
-from typing import Any
+from typing import Annotated, Any, get_origin
 
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, Discriminator, create_model
 from pydantic.fields import FieldInfo, PydanticUndefined
 
 CreateModelPayload = dict[str, tuple[Any, Any]]
@@ -18,12 +18,20 @@ def clone_field_info(field_info: FieldInfo) -> FieldInfo:
     return field_info._copy()  # pyright: ignore[reportPrivateUsage]
 
 
+def _extract_discriminator_metadata(field_info: FieldInfo) -> tuple[Any, ...]:
+    return tuple(item for item in field_info.metadata if isinstance(item, Discriminator))
+
+
 def build_payload_from_model(model: type[BaseModel]) -> CreateModelPayload:
-    """Build a pydantic.create_model payload from a BaseModel class."""
     payload: CreateModelPayload = {}
 
     for field_name, field_info in model.model_fields.items():
         annotation = field_info.annotation
+        discriminator_metadata = _extract_discriminator_metadata(field_info)
+
+        if discriminator_metadata:
+            annotation = Annotated[annotation, *discriminator_metadata]
+
         field_copy = clone_field_info(field_info)
 
         if field_info.is_required():
@@ -42,10 +50,15 @@ def create_model_from_payload(
     payload: CreateModelPayload,
     name: str,
 ) -> type[BaseModel]:
-    """Create a Pydantic model from a create_model payload."""
-    return create_model(
+    created_model = create_model(
         name,
         __base__=BaseModel,
         __module__=source_model.__module__,
         **payload,
     )
+
+    for field_name, (annotation, _) in payload.items():
+        if get_origin(annotation) is Annotated:
+            created_model.model_fields[field_name].annotation = annotation
+
+    return created_model

@@ -1,12 +1,13 @@
 """Shared recursive model transformation engine."""
 
 from collections.abc import Callable, Mapping
-from typing import Any, Protocol, get_args, get_origin
+from typing import Annotated, Any, Protocol, get_args, get_origin
 
 from pydantic import BaseModel
 
 from ab_core.pydantic_patch.core.cache import OperationCacheKey
 from ab_core.pydantic_patch.core.errors import InvalidDiscriminatorError
+from ab_core.pydantic_patch.core.fields import make_field_required
 from ab_core.pydantic_patch.core.payload import (
     CreateModelPayload,
     build_payload_from_model,
@@ -181,13 +182,14 @@ def transform_annotation(
         if discriminator is not None:
             transformed_inner = transform_discriminated_union(
                 inner,
-                discriminator=discriminator,
-                child_models=child_models,
                 operation=operation,
+                child_models=child_models,
+                discriminator_key=discriminator.discriminator,
                 suffix=suffix,
                 mutate_payload=mutate_payload,
                 make_cache_key=make_cache_key,
             )
+            return Annotated[transformed_inner, *metadata]
         else:
             transformed_inner = transform_annotation(
                 inner,
@@ -264,15 +266,14 @@ def transform_annotation(
 def transform_discriminated_union(
     union_annotation: Any,
     *,
-    discriminator: Any,
-    child_models: Mapping[type[BaseModel], Any],
     operation: str,
+    child_models: Mapping[type[BaseModel], Any],
+    discriminator_key: str,
     suffix: str,
     mutate_payload: PayloadMutator,
     make_cache_key: CacheKeyFactory,
 ) -> Any:
     """Transform variants in an Annotated discriminated union."""
-    discriminator_key = get_discriminator_key(discriminator)
     origin = get_origin(union_annotation)
     args = get_args(union_annotation)
 
@@ -308,6 +309,13 @@ def transform_discriminated_union(
         validate_discriminator_config(
             variant,
             effective_child_config,
+            operation=operation,
+            discriminator_key=discriminator_key,
+        )
+
+        effective_child_config = force_discriminator_required(
+            effective_child_config,
+            source_model=variant,
             operation=operation,
             discriminator_key=discriminator_key,
         )
@@ -375,4 +383,58 @@ def validate_discriminator_config(
                 f"Discriminator field {discriminator_key!r} cannot be partial for "
                 f"discriminated-union variant {variant.__name__}."
             )
+
+
+def force_discriminator_required(
+    config: Any,
+    *,
+    source_model: type[BaseModel],
+    operation: str,
+    discriminator_key: str,
+) -> Any:
+    """Keep discriminator fields usable for discriminated-union validation."""
+    if operation == "partial" and hasattr(config, "fields"):
+        fields = getattr(config, "fields")
+
+        if fields is None:
+            return config.model_copy(
+                update={
+                    "fields": frozenset(
+                        field_name
+                        for field_name in source_model.model_fields
+                        if field_name != discriminator_key
+                    )
+                }
+            )
+
+        return config
+
+    if operation == "patch" and hasattr(config, "partial") and hasattr(config, "required"):
+        partial = getattr(config, "partial")
+        required = getattr(config, "required") or frozenset()
+
+        updates: dict[str, Any] = {
+            "required": frozenset(set(required) | {discriminator_key}),
+        }
+
+        if partial is not None:
+            updates["partial"] = frozenset(set(partial) - {discriminator_key})
+
+        return config.model_copy(update=updates)
+
+    return config
+
+
+def make_payload_discriminator_required(
+    payload: CreateModelPayload,
+    *,
+    discriminator_key: str,
+) -> CreateModelPayload:
+    if discriminator_key not in payload:
+        return payload
+
+    annotation, default = payload[discriminator_key]
+    payload = dict(payload)
+    payload[discriminator_key] = make_field_required(annotation, default)
+    return payload
 

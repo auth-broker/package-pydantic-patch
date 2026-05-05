@@ -12,17 +12,23 @@ dev = [
   "pytest-cov>=6.2.1,<7",
   "pytest>=8.4.1,<9",
   "ruff>=0.12.3,<0.13",
-  "tox>=4.27.0,<5"
+  "tox>=4.27.0,<5",
+  "uvicorn>=0.46.0",
+  "fastapi>=0.136.1",
+  "sqlmodel>=0.0.24",
 ]
 
 [project]
 authors = [{email = "mattcoul7@gmail.com", name = "Matt Coulter"}]
-dependencies = []
+dependencies = [
+    "generic-preserver>=0.1.6",
+    "pydantic>=2",
+]
 description = "Python Pydantic support of TypeScript-style utility types, including Partial, Required, Pick, and Omit. Useful for PATCH endpoints driven from BaseModel / SQLModel classes."
 name = "ab-pydantic-patch"
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
-version = "0.1.0"
+version = "1.0.0"
 
 [tool.hatch.build.targets.sdist]
 include = ["src/ab_core"]
@@ -63,3 +69,7 @@ select = [
   "UP", # pyupgrade
   "W" # pycodestyle warnings
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["D100", "D101", "D103"]
+"examples/**/*.py" = ["D100", "D101", "D103"]

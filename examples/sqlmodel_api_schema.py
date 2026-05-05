@@ -190,7 +190,7 @@ def patch_household(
 if __name__ == "__main__":
     import uvicorn
 
-    # http://localhost:8000/docs#/default/upsert_household_households_patch
+    # http://localhost:8000/docs#/default/patch_household_households_patch
     uvicorn.run(
         app,
         host="0.0.0.0",

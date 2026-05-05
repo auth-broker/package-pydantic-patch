@@ -1,6 +1,7 @@
 import os
+from collections.abc import Mapping
 from contextlib import asynccontextmanager
-from typing import Annotated, Mapping
+from typing import Annotated
 
 from fastapi import Depends as FDepends
 from fastapi import FastAPI, HTTPException
@@ -9,8 +10,8 @@ from sqlmodel import Field, Relationship, SQLModel
 
 from ab_core.database.databases import Database
 from ab_core.database.session_context import db_session_sync
-from ab_core.pydantic_patch.patch import Patch, PatchConfig
 from ab_core.dependency import Depends, inject
+from ab_core.pydantic_patch.patch import Patch, PatchConfig
 
 # =========================
 # ENV CONFIG (like pytest)
@@ -89,8 +90,6 @@ def seed(db: Database):
         session.commit()
 
 
-
-
 @asynccontextmanager
 @inject
 async def lifespan(
@@ -145,11 +144,7 @@ def patch_household(
     if household is None:
         raise HTTPException(status_code=404, detail="Household not found")
 
-    household_data = {
-        key: value
-        for key, value in data.items()
-        if key not in {"cats", "dogs"}
-    }
+    household_data = {key: value for key, value in data.items() if key not in {"cats", "dogs"}}
     apply_scalar_patch(household, household_data)
 
     if "cats" in data:

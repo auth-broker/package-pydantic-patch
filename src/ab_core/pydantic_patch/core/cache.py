@@ -1,6 +1,6 @@
 """Cache-key helpers for generated pydantic_patch models."""
 
-from __future__ import annotations
+
 
 from collections.abc import Mapping
 from dataclasses import dataclass

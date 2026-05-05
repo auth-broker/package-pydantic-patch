@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 from ab_core.pydantic_patch.omit import create_omit_model
 from ab_core.pydantic_patch.patch import PatchConfig, create_patch_model

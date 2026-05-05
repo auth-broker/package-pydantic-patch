@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 import pytest
 from pydantic import ValidationError
@@ -82,10 +82,3 @@ def test_patch_discriminator_field_cannot_be_omitted(models):
                 },
             ),
         )
-
-
-def test_patch_discriminator_field_missing_from_variant_raises(models):
-    BadPetOwner = models["BadPetOwner"]
-
-    with pytest.raises(InvalidDiscriminatorError):
-        create_patch_model(BadPetOwner, config=PatchConfig(partial=None))

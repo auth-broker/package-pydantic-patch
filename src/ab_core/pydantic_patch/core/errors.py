@@ -1,6 +1,6 @@
 """Errors raised by pydantic_patch."""
 
-from __future__ import annotations
+
 
 
 class PydanticPatchError(Exception):

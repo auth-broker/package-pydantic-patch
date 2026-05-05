@@ -1,6 +1,6 @@
 """Typing helpers for recursive model transformation."""
 
-from __future__ import annotations
+
 
 import types as py_types
 from functools import reduce

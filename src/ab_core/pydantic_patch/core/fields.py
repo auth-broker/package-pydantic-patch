@@ -1,6 +1,6 @@
 """Field validation and payload mutation helpers."""
 
-from __future__ import annotations
+
 
 from collections.abc import Iterable
 from typing import Any, get_args, get_origin

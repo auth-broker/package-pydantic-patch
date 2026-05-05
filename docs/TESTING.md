@@ -27,7 +27,7 @@ The tests also assume:
 ## `tests/conftest.py`
 
 ```python
-from __future__ import annotations
+
 
 from datetime import datetime
 from typing import Annotated, Literal, get_args, get_origin
@@ -136,18 +136,6 @@ class PetOwner(BaseModel):
     updated_at: datetime
 
 
-class BadDiscriminatorVariant(BaseModel):
-    id: int | None = None
-    name: str
-
-
-BadPet = Annotated[Cat | BadDiscriminatorVariant, Discriminator("kind")]
-
-
-class BadPetOwner(BaseModel):
-    pet: BadPet
-
-
 class ArbitraryPayload(BaseModel):
     id: int
     metadata: dict[str, object]
@@ -174,7 +162,6 @@ def models():
         "Dog": Dog,
         "Bird": Bird,
         "PetOwner": PetOwner,
-        "BadPetOwner": BadPetOwner,
         "ArbitraryPayload": ArbitraryPayload,
         "MixedUnionPayload": MixedUnionPayload,
     }
@@ -286,7 +273,7 @@ def expected_models():
 ## `tests/helpers/assert_model.py`
 
 ```python
-from __future__ import annotations
+
 
 from typing import Any, get_args, get_origin
 
@@ -359,7 +346,7 @@ def assert_same_annotation_object(actual: Any, expected: Any) -> None:
 ## `tests/pick/test_pick_simple.py`
 
 ```python
-from __future__ import annotations
+
 
 import pytest
 
@@ -411,7 +398,7 @@ def test_pick_generic_api(models):
 ## `tests/pick/test_pick_recursive.py`
 
 ```python
-from __future__ import annotations
+
 
 from ab_core.pydantic_patch.pick import PickConfig, create_pick_model
 from tests.helpers.assert_model import get_dict_value_type, get_list_item_type
@@ -480,7 +467,7 @@ def test_pick_unconfigured_child_model_remains_unchanged(models):
 ## `tests/pick/test_pick_discriminated_union.py`
 
 ```python
-from __future__ import annotations
+
 
 import pytest
 
@@ -546,7 +533,7 @@ def test_pick_discriminator_field_cannot_be_omitted_from_variant(models):
 ## `tests/omit/test_omit_simple.py`
 
 ```python
-from __future__ import annotations
+
 
 import pytest
 
@@ -596,7 +583,7 @@ def test_omit_generic_api(models):
 ## `tests/omit/test_omit_recursive.py`
 
 ```python
-from __future__ import annotations
+
 
 from ab_core.pydantic_patch.omit import OmitConfig, create_omit_model
 from tests.helpers.assert_model import get_dict_value_type, get_list_item_type
@@ -653,7 +640,7 @@ def test_omit_deep_quote_match_score(models):
 ## `tests/omit/test_omit_discriminated_union.py`
 
 ```python
-from __future__ import annotations
+
 
 import pytest
 
@@ -706,7 +693,7 @@ def test_omit_discriminator_field_raises(models):
 ## `tests/partial/test_partial_simple.py`
 
 ```python
-from __future__ import annotations
+
 
 import pytest
 
@@ -768,7 +755,7 @@ def test_partial_generic_api(models):
 ## `tests/partial/test_partial_recursive.py`
 
 ```python
-from __future__ import annotations
+
 
 from ab_core.pydantic_patch.partial import PartialConfig, create_partial_model
 from tests.helpers.assert_model import assert_optional, get_dict_value_type, get_list_item_type
@@ -841,7 +828,7 @@ def test_partial_parent_only_does_not_partial_child_without_child_config(models)
 ## `tests/partial/test_partial_discriminated_union.py`
 
 ```python
-from __future__ import annotations
+
 
 import pytest
 from pydantic import ValidationError
@@ -896,7 +883,7 @@ def test_partial_discriminator_field_cannot_be_partialed(models):
 ## `tests/required/test_required_simple.py`
 
 ```python
-from __future__ import annotations
+
 
 import pytest
 
@@ -953,7 +940,7 @@ def test_required_generic_api(models):
 ## `tests/required/test_required_recursive.py`
 
 ```python
-from __future__ import annotations
+
 
 from ab_core.pydantic_patch.required import RequiredConfig, create_required_model
 from tests.helpers.assert_model import assert_required, get_dict_value_type, get_list_item_type
@@ -1009,7 +996,7 @@ def test_required_address_id_everywhere(models):
 ## `tests/required/test_required_discriminated_union.py`
 
 ```python
-from __future__ import annotations
+
 
 import pytest
 from pydantic import ValidationError
@@ -1061,7 +1048,7 @@ def test_required_discriminated_union_variant_ids(models):
 ## `tests/patch/test_patch_simple.py`
 
 ```python
-from __future__ import annotations
+
 
 from ab_core.pydantic_patch.patch import Patch, PatchConfig, create_patch_model
 from tests.helpers.assert_model import assert_field_names, assert_model_equivalent, assert_optional, assert_required
@@ -1126,7 +1113,7 @@ def test_patch_generic_api(models):
 ## `tests/patch/test_patch_operation_order.py`
 
 ```python
-from __future__ import annotations
+
 
 import pytest
 
@@ -1186,7 +1173,7 @@ def test_patch_partial_field_not_present_after_exclude_raises(models):
 ## `tests/patch/test_patch_recursive.py`
 
 ```python
-from __future__ import annotations
+
 
 from ab_core.pydantic_patch.patch import PatchConfig, create_patch_model
 from tests.helpers.assert_model import assert_optional, assert_required, get_list_item_type
@@ -1241,7 +1228,7 @@ def test_patch_quote_line_items_and_benchmark_matches(models):
 ## `tests/patch/test_patch_multiple_same_child_model.py`
 
 ```python
-from __future__ import annotations
+
 
 from ab_core.pydantic_patch.patch import PatchConfig, create_patch_model
 from tests.helpers.assert_model import get_dict_value_type, get_list_item_type
@@ -1282,7 +1269,7 @@ def test_patch_multiple_same_child_model_reuses_same_type(models):
 ## `tests/patch/test_patch_discriminated_union.py`
 
 ```python
-from __future__ import annotations
+
 
 import pytest
 from pydantic import ValidationError
@@ -1380,7 +1367,7 @@ def test_patch_discriminator_field_missing_from_variant_raises(models):
 ## `tests/patch/test_patch_cache.py`
 
 ```python
-from __future__ import annotations
+
 
 from ab_core.pydantic_patch.omit import create_omit_model
 from ab_core.pydantic_patch.patch import PatchConfig, create_patch_model
@@ -1494,7 +1481,7 @@ def test_discriminated_union_variants_reuse_cached_generated_classes(models):
 ## `tests/patch/test_patch_validation.py`
 
 ```python
-from __future__ import annotations
+
 
 import pytest
 

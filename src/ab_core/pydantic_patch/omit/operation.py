@@ -1,6 +1,6 @@
 """Omit operation implementation."""
 
-from __future__ import annotations
+
 
 from collections.abc import Collection
 

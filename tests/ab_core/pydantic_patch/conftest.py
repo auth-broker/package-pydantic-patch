@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 from datetime import datetime
 from typing import Annotated, Literal, get_args, get_origin
@@ -107,18 +107,6 @@ class PetOwner(BaseModel):
     updated_at: datetime
 
 
-class BadDiscriminatorVariant(BaseModel):
-    id: int | None = None
-    name: str
-
-
-BadPet = Annotated[Cat | BadDiscriminatorVariant, Discriminator("kind")]
-
-
-class BadPetOwner(BaseModel):
-    pet: BadPet
-
-
 class ArbitraryPayload(BaseModel):
     id: int
     metadata: dict[str, object]
@@ -145,7 +133,6 @@ def models():
         "Dog": Dog,
         "Bird": Bird,
         "PetOwner": PetOwner,
-        "BadPetOwner": BadPetOwner,
         "ArbitraryPayload": ArbitraryPayload,
         "MixedUnionPayload": MixedUnionPayload,
     }

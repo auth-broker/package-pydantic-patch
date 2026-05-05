@@ -1,6 +1,6 @@
 """Public Patch API."""
 
-from __future__ import annotations
+
 
 from collections.abc import Collection
 from typing import Generic, TypeVar, cast

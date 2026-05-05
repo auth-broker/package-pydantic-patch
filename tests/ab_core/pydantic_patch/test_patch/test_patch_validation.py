@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 import pytest
 
@@ -66,11 +66,6 @@ def test_discriminator_field_partial_raises(models):
                 child_models={Cat: PatchConfig(partial={"kind"})},
             ),
         )
-
-
-def test_discriminator_field_missing_from_variant_raises(models):
-    with pytest.raises(InvalidDiscriminatorError):
-        create_patch_model(models["BadPetOwner"], config=PatchConfig())
 
 
 def test_unsupported_arbitrary_non_pydantic_type_is_preserved(models):

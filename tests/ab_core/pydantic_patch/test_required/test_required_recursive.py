@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 from ab_core.pydantic_patch.required import RequiredConfig, create_required_model
 from tests.helpers.assert_model import assert_required, get_dict_value_type, get_list_item_type

@@ -20,7 +20,10 @@ dev = [
 
 [project]
 authors = [{email = "mattcoul7@gmail.com", name = "Matt Coulter"}]
-dependencies = []
+dependencies = [
+    "generic-preserver>=0.1.6",
+    "pydantic>=2",
+]
 description = "Python Pydantic support of TypeScript-style utility types, including Partial, Required, Pick, and Omit. Useful for PATCH endpoints driven from BaseModel / SQLModel classes."
 name = "ab-pydantic-patch"
 readme = "README.md"

@@ -1,14 +1,28 @@
 """Pydantic create_model payload helpers."""
 
-from typing import Annotated, TypeAlias, get_origin
+from typing import Annotated, TypeAlias, get_args, get_origin, get_type_hints
 
-from pydantic import BaseModel, Discriminator, create_model
+from pydantic import BaseModel, Discriminator, Field, create_model
 from pydantic.fields import FieldInfo, PydanticUndefined
 
 from ab_core.pydantic_patch.core.types import Any
 
 CreateModelField: TypeAlias = tuple[Any, object]
 CreateModelPayload: TypeAlias = dict[str, CreateModelField]
+
+
+def unwrap_sqlalchemy_mapped(annotation: object) -> object:
+    origin = get_origin(annotation)
+
+    if origin is None:
+        return annotation
+
+    if getattr(origin, "__name__", None) == "Mapped":
+        mapped_args = get_args(annotation)
+        if len(mapped_args) == 1:
+            return mapped_args[0]
+
+    return annotation
 
 
 def clone_field_info(field_info: FieldInfo) -> FieldInfo:
@@ -34,6 +48,18 @@ def build_payload_from_model(model: type[BaseModel]) -> CreateModelPayload:
         field_copy.default = PydanticUndefined if field_info.is_required() else field_info.default
 
         payload[field_name] = (annotation, field_copy)
+
+    type_hints = get_type_hints(model, include_extras=True)
+    relationship_names = getattr(model, "__sqlmodel_relationships__", {})
+
+    for relationship_name in relationship_names:
+        if relationship_name in payload:
+            continue
+
+        payload[relationship_name] = (
+            unwrap_sqlalchemy_mapped(type_hints[relationship_name]),
+            Field(default=None),
+        )
 
     return payload
 

@@ -14,6 +14,15 @@ from ab_core.pydantic_patch.core.payload import CreateModelField, CreateModelPay
 from ab_core.pydantic_patch.core.types import Any
 
 
+def get_source_field_names(model: type[BaseModel]) -> set[str]:
+    field_names = set(model.model_fields)
+
+    sqlmodel_relationships = getattr(model, "__sqlmodel_relationships__", {})
+    field_names.update(sqlmodel_relationships)
+
+    return field_names
+
+
 def validate_fields_exist_on_model(
     model: type[BaseModel],
     fields: frozenset[str] | None,
@@ -24,11 +33,13 @@ def validate_fields_exist_on_model(
     if fields is None:
         return
 
-    missing = sorted(field for field in fields if field not in model.model_fields)
+    available_fields = get_source_field_names(model)
+    missing = sorted(field for field in fields if field not in available_fields)
+
     if missing:
         raise InvalidPatchFieldError(
             f"Unknown field(s) for {operation} on {model.__name__}: {missing}. "
-            f"Available fields: {sorted(model.model_fields)}."
+            f"Available fields: {sorted(available_fields)}."
         )
 
 

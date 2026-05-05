@@ -1,7 +1,6 @@
 """Patch aggregation implementation."""
 
 from collections.abc import Collection
-from functools import cache
 
 from pydantic import BaseModel
 
@@ -24,6 +23,9 @@ from ab_core.pydantic_patch.core.payload import (
 )
 from ab_core.pydantic_patch.core.transform import transform_payload_annotations
 from ab_core.pydantic_patch.patch.config import PatchConfig
+
+
+_PATCH_MODEL_CACHE: dict[OperationCacheKey, type[BaseModel]] = {}
 
 
 def apply_patch_payload(
@@ -175,18 +177,22 @@ def create_patch_model(
             required=normalise_fields(required),
             child_models=child_models or {},
         )
-    return _create_patch_model_cached(make_patch_cache_key(model, config, name), model, config, name)
+
+    cache_key = make_patch_cache_key(model, config, name)
+    cached_model = _PATCH_MODEL_CACHE.get(cache_key)
+    if cached_model is not None:
+        return cached_model
+
+    patched_model = _create_patch_model_uncached(model, config, name)
+    _PATCH_MODEL_CACHE[cache_key] = patched_model
+    return patched_model
 
 
-@cache
-def _create_patch_model_cached(
-    cache_key: OperationCacheKey,
+def _create_patch_model_uncached(
     model: type[BaseModel],
     config: PatchConfig,
     name: str | None,
 ) -> type[BaseModel]:
-    del cache_key
-
     payload = build_payload_from_model(model)
     payload = apply_patch_scope_payload(payload, model, config)
     payload = transform_payload_annotations(

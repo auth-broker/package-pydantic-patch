@@ -119,6 +119,7 @@ Alternatively, use the `@generic_preserver` decorator to enable capturing generi
 ```python
 from typing import TypeVar, Generic
 from generic_preserver.wrapper import generic_preserver
+from generic_preserver.utils import canonical_key
 
 # Define type variables
 A = TypeVar("A")
@@ -666,6 +667,7 @@ from typing import (
 )
 
 from generic_preserver.wrapper import generic_preserver
+from generic_preserver.utils import canonical_key
 from pydantic import BaseModel, Discriminator, TypeAdapter, model_validator
 from pydantic_core.core_schema import CoreSchema
 

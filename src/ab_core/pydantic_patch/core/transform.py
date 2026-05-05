@@ -1,7 +1,6 @@
 """Shared recursive model transformation engine."""
 
 from collections.abc import Callable, Mapping
-from functools import cache
 from typing import Any, Protocol, get_args, get_origin
 
 from pydantic import BaseModel
@@ -36,6 +35,8 @@ PayloadMutator = Callable[
 
 CacheKeyFactory = Callable[[type[BaseModel], Any, str | None], OperationCacheKey]
 
+_TRANSFORM_MODEL_CACHE: dict[OperationCacheKey, type[BaseModel]] = {}
+
 
 def default_model_name(source_model: type[BaseModel], suffix: str) -> str:
     return f"{source_model.__name__}{suffix}"
@@ -53,32 +54,11 @@ def transform_model(
 ) -> type[BaseModel]:
     """Cached public wrapper for transforming a model."""
     cache_key = make_cache_key(source_model, config, name)
-    return _transform_model_cached(
-        cache_key,
-        source_model,
-        config,
-        operation,
-        suffix,
-        mutate_payload,
-        make_cache_key,
-        name,
-    )
+    cached_model = _TRANSFORM_MODEL_CACHE.get(cache_key)
+    if cached_model is not None:
+        return cached_model
 
-
-@cache
-def _transform_model_cached(
-    cache_key: OperationCacheKey,
-    source_model: type[BaseModel],
-    config: Any,
-    operation: str,
-    suffix: str,
-    mutate_payload: PayloadMutator,
-    make_cache_key: CacheKeyFactory,
-    name: str | None,
-) -> type[BaseModel]:
-    # cache_key is intentionally unused except as the stable lru_cache key.
-    del cache_key
-    return _transform_model_uncached(
+    transformed_model = _transform_model_uncached(
         source_model,
         config=config,
         operation=operation,
@@ -87,6 +67,9 @@ def _transform_model_cached(
         make_cache_key=make_cache_key,
         name=name,
     )
+
+    _TRANSFORM_MODEL_CACHE[cache_key] = transformed_model
+    return transformed_model
 
 
 def _transform_model_uncached(

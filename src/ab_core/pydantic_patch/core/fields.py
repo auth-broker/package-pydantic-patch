@@ -2,7 +2,7 @@
 
 from functools import reduce
 from operator import or_
-from typing import Any, get_args, get_origin
+from typing import get_args, get_origin
 
 from pydantic import BaseModel
 
@@ -10,6 +10,8 @@ from ab_core.pydantic_patch.core.errors import (
     ConflictingPatchConfigError,
     InvalidPatchFieldError,
 )
+from ab_core.pydantic_patch.core.payload import CreateModelField, CreateModelPayload
+from ab_core.pydantic_patch.core.types import Any
 
 
 def validate_fields_exist_on_model(
@@ -31,7 +33,7 @@ def validate_fields_exist_on_model(
 
 
 def validate_fields_exist_in_payload(
-    payload: dict[str, tuple[Any, Any]],
+    payload: CreateModelPayload,
     fields: frozenset[str] | None,
     *,
     model: type[BaseModel],
@@ -52,9 +54,6 @@ def validate_fields_exist_in_payload(
 
 def allows_none(annotation: Any) -> bool:
     """Return whether an annotation already allows None."""
-    if annotation is Any:
-        return True
-
     if annotation is None or annotation is type(None):
         return True
 
@@ -98,11 +97,11 @@ def strip_none(annotation: Any) -> Any:
     return reduce(or_, non_none_args)
 
 
-def make_field_optional(annotation: Any, default: Any) -> tuple[Any, Any]:
+def make_field_optional(annotation: Any, _default: object) -> CreateModelField:
     """Return a create_model field definition where the field is optional."""
     return make_optional(annotation), None
 
 
-def make_field_required(annotation: Any, default: Any) -> tuple[Any, Any]:
+def make_field_required(annotation: Any, _default: object) -> CreateModelField:
     """Return a create_model field definition where the field is required."""
     return strip_none(annotation), ...

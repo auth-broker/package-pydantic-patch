@@ -1,24 +1,21 @@
 """Pydantic create_model payload helpers."""
 
-from typing import Annotated, Any, get_origin
+from typing import Annotated, TypeAlias, get_origin
 
 from pydantic import BaseModel, Discriminator, create_model
 from pydantic.fields import FieldInfo, PydanticUndefined
 
-CreateModelPayload = dict[str, tuple[Any, Any]]
+from ab_core.pydantic_patch.core.types import Any
+
+CreateModelField: TypeAlias = tuple[Any, object]
+CreateModelPayload: TypeAlias = dict[str, CreateModelField]
 
 
 def clone_field_info(field_info: FieldInfo) -> FieldInfo:
-    """Create a best-effort copy of FieldInfo metadata for generated models.
-
-    Keeping FieldInfo as the default preserves aliases, descriptions, validation
-    metadata, discriminators on fields, etc. The annotation is supplied separately
-    in the create_model payload.
-    """
     return field_info._copy()  # pyright: ignore[reportPrivateUsage]
 
 
-def _extract_discriminator_metadata(field_info: FieldInfo) -> tuple[Any, ...]:
+def _extract_discriminator_metadata(field_info: FieldInfo) -> tuple[Discriminator, ...]:
     return tuple(item for item in field_info.metadata if isinstance(item, Discriminator))
 
 
@@ -34,10 +31,7 @@ def build_payload_from_model(model: type[BaseModel]) -> CreateModelPayload:
 
         field_copy = clone_field_info(field_info)
 
-        if field_info.is_required():
-            field_copy.default = PydanticUndefined
-        else:
-            field_copy.default = field_info.default
+        field_copy.default = PydanticUndefined if field_info.is_required() else field_info.default
 
         payload[field_name] = (annotation, field_copy)
 

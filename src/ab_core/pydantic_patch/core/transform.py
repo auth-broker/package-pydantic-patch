@@ -5,7 +5,10 @@ from typing import Annotated, Any, Protocol, get_args, get_origin
 
 from pydantic import BaseModel
 
-from ab_core.pydantic_patch.core.cache import OperationCacheKey
+from ab_core.pydantic_patch.core.cache import (
+    OperationCacheKey,
+    OperationName,
+)
 from ab_core.pydantic_patch.core.errors import InvalidDiscriminatorError
 from ab_core.pydantic_patch.core.fields import make_field_required
 from ab_core.pydantic_patch.core.payload import (
@@ -64,7 +67,7 @@ def transform_model(
     source_model: type[BaseModel],
     *,
     config: Any,
-    operation: str,
+    operation: OperationName,
     suffix: str,
     mutate_payload: PayloadMutator,
     make_cache_key: CacheKeyFactory,
@@ -94,7 +97,7 @@ def _transform_model_uncached(
     source_model: type[BaseModel],
     *,
     config: Any,
-    operation: str,
+    operation: OperationName,
     suffix: str,
     mutate_payload: PayloadMutator,
     make_cache_key: CacheKeyFactory,
@@ -128,7 +131,7 @@ def transform_payload_annotations(
     payload: CreateModelPayload,
     *,
     config: Any,
-    operation: str,
+    operation: OperationName,
     suffix: str,
     mutate_payload: PayloadMutator,
     make_cache_key: CacheKeyFactory,
@@ -155,7 +158,7 @@ def transform_annotation(
     annotation: Any,
     *,
     child_models: Mapping[type[BaseModel], Any],
-    operation: str,
+    operation: OperationName,
     suffix: str,
     mutate_payload: PayloadMutator,
     make_cache_key: CacheKeyFactory,
@@ -265,7 +268,7 @@ def transform_annotation(
 def transform_discriminated_union(
     union_annotation: Any,
     *,
-    operation: str,
+    operation: OperationName,
     child_models: Mapping[type[BaseModel], Any],
     discriminator_key: str,
     suffix: str,
@@ -337,7 +340,7 @@ def validate_discriminator_config(
     variant: type[BaseModel],
     config: Any,
     *,
-    operation: str,
+    operation: OperationName,
     discriminator_key: str,
 ) -> None:
     """Ensure a child config does not break discriminated-union validation."""
@@ -388,7 +391,7 @@ def force_discriminator_required(
     config: Any,
     *,
     source_model: type[BaseModel],
-    operation: str,
+    operation: OperationName,
     discriminator_key: str,
 ) -> Any:
     """Keep discriminator fields usable for discriminated-union validation."""

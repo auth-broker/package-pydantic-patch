@@ -1,13 +1,13 @@
 """Patch aggregation configuration."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from ab_core.pydantic_patch.core.config import normalise_fields
 
 
 class PatchConfig(BaseModel):
-    include: frozenset[str] | None = None
-    exclude: frozenset[str] | None = None
+    include: frozenset[str] | None = Field(default=None, validation_alias=AliasChoices("include", "pick"))
+    exclude: frozenset[str] | None = Field(default=None, validation_alias=AliasChoices("exclude", "omit"))
     partial: frozenset[str] | None = None
     required: frozenset[str] | None = None
 

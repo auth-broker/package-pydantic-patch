@@ -161,6 +161,8 @@ def create_patch_model(
     model: type[BaseModel],
     *,
     config: PatchConfig | None = None,
+    pick: Collection[str] | None = None,
+    omit: Collection[str] | None = None,
     include: Collection[str] | None = None,
     exclude: Collection[str] | None = None,
     partial: Collection[str] | None = None,
@@ -169,9 +171,12 @@ def create_patch_model(
     name: str | None = None,
 ) -> type[BaseModel]:
     if config is None:
+        resolved_include = pick if pick is not None else include
+        resolved_exclude = omit if omit is not None else exclude
+
         config = PatchConfig(
-            include=normalise_fields(include),
-            exclude=normalise_fields(exclude),
+            include=normalise_fields(resolved_include),
+            exclude=normalise_fields(resolved_exclude),
             partial=normalise_fields(partial),
             required=normalise_fields(required),
             child_models=child_models or {},

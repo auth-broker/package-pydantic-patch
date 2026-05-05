@@ -1,10 +1,9 @@
+from ab_core.pydantic_patch.partial import PartialConfig, create_partial_model
 from tests.ab_core.pydantic_patch.conftest_sqlmodel_relationships import (
     SQLModelRelationshipHousehold,
     SQLModelRelationshipPet,
 )
 from tests.helpers.assert_model import assert_optional, get_list_item_type
-
-from ab_core.pydantic_patch.partial import PartialConfig, create_partial_model
 
 
 def test_partial_sqlmodel_relationship_field_from_table_model():

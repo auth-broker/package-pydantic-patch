@@ -1,10 +1,9 @@
+from ab_core.pydantic_patch.pick import PickConfig, create_pick_model
 from tests.ab_core.pydantic_patch.conftest_sqlmodel_relationships import (
     SQLModelRelationshipHousehold,
     SQLModelRelationshipPet,
 )
 from tests.helpers.assert_model import assert_field_names, get_list_item_type
-
-from ab_core.pydantic_patch.pick import PickConfig, create_pick_model
 
 
 def test_pick_sqlmodel_relationship_field_from_table_model():

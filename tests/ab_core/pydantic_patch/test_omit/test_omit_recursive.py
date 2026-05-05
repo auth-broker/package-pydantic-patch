@@ -1,6 +1,5 @@
-from tests.helpers.assert_model import get_dict_value_type, get_list_item_type
-
 from ab_core.pydantic_patch.omit import OmitConfig, create_omit_model
+from tests.helpers.assert_model import get_dict_value_type, get_list_item_type
 
 
 def test_omit_address_audit_fields_everywhere(models):

@@ -1,12 +1,12 @@
 import pytest
 from pydantic import ValidationError
+
+from ab_core.pydantic_patch.patch import Patch, PatchConfig, create_patch_model
 from tests.ab_core.pydantic_patch.conftest_sqlmodel_relationships import (
     SQLModelRelationshipHousehold,
     SQLModelRelationshipPet,
 )
 from tests.helpers.assert_model import assert_field_names, assert_optional, assert_required, get_list_item_type
-
-from ab_core.pydantic_patch.patch import Patch, PatchConfig, create_patch_model
 
 
 def test_patch_sqlmodel_relationship_field_from_table_model():

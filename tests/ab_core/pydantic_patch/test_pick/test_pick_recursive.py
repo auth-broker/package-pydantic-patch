@@ -1,6 +1,5 @@
-from tests.helpers.assert_model import get_dict_value_type, get_list_item_type
-
 from ab_core.pydantic_patch.pick import PickConfig, create_pick_model
+from tests.helpers.assert_model import get_dict_value_type, get_list_item_type
 
 
 def test_pick_organisation_recursively_reuses_same_address_pick(models):

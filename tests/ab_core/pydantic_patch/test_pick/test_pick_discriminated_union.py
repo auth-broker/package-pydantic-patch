@@ -1,8 +1,8 @@
 import pytest
-from tests.helpers.assert_model import get_list_item_type
 
 from ab_core.pydantic_patch.core.errors import InvalidDiscriminatorError
 from ab_core.pydantic_patch.pick import PickConfig, create_pick_model
+from tests.helpers.assert_model import get_list_item_type
 
 
 def test_pick_discriminated_union_preserves_union_and_variants(models):

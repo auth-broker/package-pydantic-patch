@@ -1,8 +1,8 @@
 import pytest
-from tests.helpers.assert_model import assert_field_names, assert_model_equivalent
 
 from ab_core.pydantic_patch.core.errors import InvalidPatchFieldError
 from ab_core.pydantic_patch.omit import Omit, create_omit_model
+from tests.helpers.assert_model import assert_field_names, assert_model_equivalent
 
 
 def test_omit_user_audit_fields(models, expected_models):

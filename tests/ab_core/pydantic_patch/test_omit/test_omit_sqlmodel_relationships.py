@@ -1,10 +1,9 @@
+from ab_core.pydantic_patch.omit import OmitConfig, create_omit_model
 from tests.ab_core.pydantic_patch.conftest_sqlmodel_relationships import (
     SQLModelRelationshipHousehold,
     SQLModelRelationshipPet,
 )
 from tests.helpers.assert_model import assert_field_names, get_list_item_type
-
-from ab_core.pydantic_patch.omit import OmitConfig, create_omit_model
 
 
 def test_omit_sqlmodel_relationship_child_fields_from_table_model():

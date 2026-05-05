@@ -1,6 +1,5 @@
-from tests.helpers.assert_model import get_dict_value_type, get_list_item_type
-
 from ab_core.pydantic_patch.patch import PatchConfig, create_patch_model
+from tests.helpers.assert_model import get_dict_value_type, get_list_item_type
 
 
 def test_patch_multiple_same_child_model_reuses_same_type(models):

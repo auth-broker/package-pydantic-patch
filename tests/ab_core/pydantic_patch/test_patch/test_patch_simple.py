@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError
-from tests.helpers.assert_model import assert_field_names, assert_model_equivalent, assert_optional, assert_required
 
 from ab_core.pydantic_patch.patch import Patch, PatchConfig, create_patch_model
+from tests.helpers.assert_model import assert_field_names, assert_model_equivalent, assert_optional, assert_required
 
 
 def test_patch_user_include_name_email(models):

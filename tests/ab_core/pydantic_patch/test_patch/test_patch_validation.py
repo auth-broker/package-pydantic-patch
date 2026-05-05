@@ -1,5 +1,4 @@
 import pytest
-from tests.helpers.assert_model import assert_field_names
 
 from ab_core.pydantic_patch.core.errors import (
     ConflictingPatchConfigError,
@@ -8,6 +7,7 @@ from ab_core.pydantic_patch.core.errors import (
 )
 from ab_core.pydantic_patch.patch import PatchConfig, create_patch_model
 from ab_core.pydantic_patch.pick import create_pick_model
+from tests.helpers.assert_model import assert_field_names
 
 
 @pytest.mark.parametrize(

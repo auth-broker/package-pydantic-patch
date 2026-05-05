@@ -61,6 +61,7 @@ def create_required_model(
     fields: Collection[str] | None = None,
     child_models: dict[type[BaseModel], RequiredConfig] | None = None,
     name: str | None = None,
+    use_cache: bool = True,
 ) -> type[BaseModel]:
     config = RequiredConfig(fields=normalise_fields(fields), child_models=child_models or {})
     return transform_model(
@@ -71,4 +72,5 @@ def create_required_model(
         mutate_payload=apply_required_payload,
         make_cache_key=make_required_cache_key,
         name=name,
+        use_cache=use_cache,
     )

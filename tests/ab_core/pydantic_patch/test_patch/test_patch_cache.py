@@ -44,19 +44,19 @@ def test_child_model_cache_hit_inside_recursive_parent_generation(models):
     Organisation = models["Organisation"]
     Address = models["Address"]
 
-    address_config = PatchConfig(include={"id", "suburb"}, required={"id"}, partial={"suburb"})
+    address_config = PatchConfig(pick={"id", "suburb"}, required={"id"}, partial={"suburb"})
 
     parent_a = create_patch_model(
         Organisation,
         config=PatchConfig(
-            include={"primary_address"},
+            pick={"primary_address"},
             child_models={Address: address_config},
         ),
     )
     parent_b = create_patch_model(
         Organisation,
         config=PatchConfig(
-            include={"postal_address"},
+            pick={"postal_address"},
             child_models={Address: address_config},
         ),
     )

@@ -14,21 +14,21 @@ def test_patch_discriminated_union_flat_child_configs(models):
     result = create_patch_model(
         PetOwner,
         config=PatchConfig(
-            include={"pet", "previous_pets"},
+            pick={"pet", "previous_pets"},
             partial=None,
             child_models={
                 Cat: PatchConfig(
-                    include={"kind", "id", "name", "lives"},
+                    pick={"kind", "id", "name", "lives"},
                     partial={"name", "lives"},
                     required={"id"},
                 ),
                 Dog: PatchConfig(
-                    include={"kind", "id", "name", "bark_volume"},
+                    pick={"kind", "id", "name", "bark_volume"},
                     partial={"name", "bark_volume"},
                     required={"id"},
                 ),
                 Bird: PatchConfig(
-                    include={"kind", "id", "name", "wing_span"},
+                    pick={"kind", "id", "name", "wing_span"},
                     partial={"name", "wing_span"},
                     required={"id"},
                 ),
@@ -58,7 +58,7 @@ def test_patch_discriminator_field_cannot_be_partial(models):
         create_patch_model(
             PetOwner,
             config=PatchConfig(
-                include={"pet"},
+                pick={"pet"},
                 child_models={
                     Cat: PatchConfig(partial={"kind"}),
                 },
@@ -74,9 +74,9 @@ def test_patch_discriminator_field_cannot_be_omitted(models):
         create_patch_model(
             PetOwner,
             config=PatchConfig(
-                include={"pet"},
+                pick={"pet"},
                 child_models={
-                    Cat: PatchConfig(exclude={"kind"}),
+                    Cat: PatchConfig(omit={"kind"}),
                 },
             ),
         )

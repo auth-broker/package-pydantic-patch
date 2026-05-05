@@ -16,8 +16,8 @@ class OperationCacheKey:
     source_model: type[BaseModel]
     operation: OperationName
     fields: tuple[str, ...] | None = None
-    include: tuple[str, ...] | None = None
-    exclude: tuple[str, ...] | None = None
+    pick: tuple[str, ...] | None = None
+    omit: tuple[str, ...] | None = None
     partial: tuple[str, ...] | None = None
     required: tuple[str, ...] | None = None
     child_models: tuple[tuple[type[BaseModel], "OperationCacheKey"], ...] = ()

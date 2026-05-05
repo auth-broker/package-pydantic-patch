@@ -9,8 +9,8 @@ def test_patch_include_then_exclude(models):
     result = create_patch_model(
         models["User"],
         config=PatchConfig(
-            include={"id", "name", "created_at"},
-            exclude={"created_at"},
+            pick={"id", "name", "created_at"},
+            omit={"created_at"},
             partial=set(),
         ),
     )
@@ -34,7 +34,7 @@ def test_patch_required_field_not_present_after_include_raises(models):
         create_patch_model(
             models["User"],
             config=PatchConfig(
-                include={"name"},
+                pick={"name"},
                 required={"id"},
             ),
         )
@@ -45,7 +45,7 @@ def test_patch_partial_field_not_present_after_exclude_raises(models):
         create_patch_model(
             models["User"],
             config=PatchConfig(
-                exclude={"email"},
+                omit={"email"},
                 partial={"email"},
             ),
         )

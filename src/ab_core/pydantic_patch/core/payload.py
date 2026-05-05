@@ -49,7 +49,7 @@ def create_model_from_payload(
         __base__=BaseModel,
         __module__=source_model.__module__,
         **payload,
-    )
+    )  # ty:ignore[no-matching-overload]
 
     for field_name, (annotation, _) in payload.items():
         if get_origin(annotation) is Annotated:

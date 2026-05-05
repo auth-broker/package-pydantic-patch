@@ -13,8 +13,8 @@ from ab_core.pydantic_patch.pick import create_pick_model
 @pytest.mark.parametrize(
     "config",
     [
-        PatchConfig(include={"does_not_exist"}),
-        PatchConfig(exclude={"does_not_exist"}),
+        PatchConfig(pick={"does_not_exist"}),
+        PatchConfig(omit={"does_not_exist"}),
         PatchConfig(partial={"does_not_exist"}),
         PatchConfig(required={"does_not_exist"}),
     ],
@@ -28,7 +28,7 @@ def test_required_field_not_in_payload_raises(models):
     with pytest.raises(ConflictingPatchConfigError):
         create_patch_model(
             models["User"],
-            config=PatchConfig(include={"name"}, required={"id"}),
+            config=PatchConfig(pick={"name"}, required={"id"}),
         )
 
 
@@ -36,7 +36,7 @@ def test_partial_field_not_in_payload_raises(models):
     with pytest.raises(ConflictingPatchConfigError):
         create_patch_model(
             models["User"],
-            config=PatchConfig(exclude={"email"}, partial={"email"}),
+            config=PatchConfig(omit={"email"}, partial={"email"}),
         )
 
 
@@ -48,7 +48,7 @@ def test_discriminator_field_omitted_raises(models):
         create_patch_model(
             PetOwner,
             config=PatchConfig(
-                child_models={Cat: PatchConfig(exclude={"kind"})},
+                child_models={Cat: PatchConfig(omit={"kind"})},
             ),
         )
 

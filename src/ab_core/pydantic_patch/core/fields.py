@@ -47,7 +47,7 @@ def validate_fields_exist_in_payload(
     if missing:
         raise ConflictingPatchConfigError(
             f"Field(s) {missing} cannot be used for {operation} on {model.__name__} "
-            "because they are not present after include/exclude processing. "
+            "because they are not present after pick/omit processing. "
             f"Available payload fields: {sorted(payload)}."
         )
 

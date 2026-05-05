@@ -11,17 +11,17 @@ def test_patch_quote_line_items_and_benchmark_matches(models):
     result = create_patch_model(
         Quote,
         config=PatchConfig(
-            include={"id", "line_items"},
+            pick={"id", "line_items"},
             partial={"line_items"},
             required={"id"},
             child_models={
                 QuoteLineItem: PatchConfig(
-                    include={"id", "quantity", "benchmark_matches"},
+                    pick={"id", "quantity", "benchmark_matches"},
                     partial={"quantity", "benchmark_matches"},
                     required={"id"},
                     child_models={
                         BenchmarkMatch: PatchConfig(
-                            include={"id", "selected"},
+                            pick={"id", "selected"},
                             partial={"selected"},
                             required={"id"},
                         ),

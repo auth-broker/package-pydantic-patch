@@ -10,6 +10,7 @@ from ab_core.pydantic_patch.core.cache import (
     sort_child_keys,
 )
 from ab_core.pydantic_patch.core.config import normalise_fields
+from ab_core.pydantic_patch.core.errors import InvalidDiscriminatorError
 from ab_core.pydantic_patch.core.fields import (
     make_field_optional,
     validate_fields_exist_in_payload,
@@ -56,12 +57,36 @@ def make_partial_cache_key(
     )
 
 
+def prepare_partial_discriminator_child_config(
+    source_model: type[BaseModel],
+    config: PartialConfig,
+    discriminator_key: str,
+) -> PartialConfig:
+    if config.fields is None:
+        return config.model_copy(
+            update={
+                "fields": frozenset(
+                    field_name for field_name in source_model.model_fields if field_name != discriminator_key
+                )
+            }
+        )
+
+    if discriminator_key in config.fields:
+        raise InvalidDiscriminatorError(
+            f"Cannot make discriminator field {discriminator_key!r} optional "
+            f"on discriminated union variant {source_model.__name__!r}."
+        )
+
+    return config
+
+
 def create_partial_model(
     model: type[BaseModel],
     *,
     fields: Collection[str] | None = None,
     child_models: dict[type[BaseModel], PartialConfig] | None = None,
     name: str | None = None,
+    use_cache: bool = True,
 ) -> type[BaseModel]:
     config = PartialConfig(fields=normalise_fields(fields), child_models=child_models or {})
     return transform_model(
@@ -71,5 +96,7 @@ def create_partial_model(
         suffix="Partial",
         mutate_payload=apply_partial_payload,
         make_cache_key=make_partial_cache_key,
+        prepare_discriminator_child_config=prepare_partial_discriminator_child_config,
         name=name,
+        use_cache=use_cache,
     )

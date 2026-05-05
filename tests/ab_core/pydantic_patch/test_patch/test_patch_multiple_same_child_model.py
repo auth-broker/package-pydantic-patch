@@ -10,11 +10,11 @@ def test_patch_multiple_same_child_model_reuses_same_type(models):
     result = create_patch_model(
         Organisation,
         config=PatchConfig(
-            include={"primary_address", "postal_address", "branch_addresses", "address_lookup"},
+            pick={"primary_address", "postal_address", "branch_addresses", "address_lookup"},
             partial=None,
             child_models={
                 Address: PatchConfig(
-                    include={"id", "suburb", "postcode"},
+                    pick={"id", "suburb", "postcode"},
                     partial={"suburb", "postcode"},
                     required={"id"},
                 ),

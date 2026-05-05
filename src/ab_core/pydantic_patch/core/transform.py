@@ -1,59 +1,67 @@
 """Shared recursive model transformation engine."""
 
 from collections.abc import Callable, Mapping
-from typing import Annotated, Any, Protocol, get_args, get_origin
+from functools import reduce
+from operator import or_
+from typing import Annotated, Protocol, Self, TypeAlias, TypeVar, get_args, get_origin
 
 from pydantic import BaseModel
 
-from ab_core.pydantic_patch.core.cache import (
-    OperationCacheKey,
-    OperationName,
-)
-from ab_core.pydantic_patch.core.errors import InvalidDiscriminatorError
-from ab_core.pydantic_patch.core.fields import make_field_required
+from ab_core.pydantic_patch.core.cache import OperationCacheKey, OperationName
 from ab_core.pydantic_patch.core.payload import (
     CreateModelPayload,
     build_payload_from_model,
     create_model_from_payload,
 )
-from ab_core.pydantic_patch.core.types import (
-    extract_discriminator,
-    is_annotated,
-    is_basemodel_type,
-    is_union_origin,
-    rebuild_annotated,
-    rebuild_union,
-    split_annotated,
-)
 
 
 class TransformConfig(Protocol):
-    child_models: Mapping[type[BaseModel], Any]
+    child_models: Mapping[type[BaseModel], Self]
+
+    def model_copy(
+        self,
+        *,
+        update: Mapping[str, object] | None = None,
+        deep: bool = False,
+    ) -> Self: ...
 
 
-PayloadMutator = Callable[
-    [CreateModelPayload, type[BaseModel], Any],
+ConfigT = TypeVar("ConfigT", bound=TransformConfig)
+
+PayloadMutator: TypeAlias = Callable[
+    [CreateModelPayload, type[BaseModel], ConfigT],
     CreateModelPayload,
 ]
 
-CacheKeyFactory = Callable[[type[BaseModel], Any, str | None], OperationCacheKey]
+CacheKeyFactory: TypeAlias = Callable[
+    [type[BaseModel], ConfigT, str | None],
+    OperationCacheKey,
+]
+
+DiscriminatorChildConfigPreparer: TypeAlias = Callable[
+    [type[BaseModel], ConfigT, str],
+    ConfigT,
+]
 
 _TRANSFORM_MODEL_CACHE: dict[OperationCacheKey, type[BaseModel]] = {}
 
 
-def with_inherited_child_models(config: Any, child_models: Mapping[type[BaseModel], Any]) -> Any:
-    """Return a config whose child model map includes inherited entries.
+def prepare_discriminator_child_config_default(
+    _source_model: type[BaseModel],
+    config: ConfigT,
+    _discriminator_key: str,
+) -> ConfigT:
+    return config
 
-    Child-specific mappings take precedence over inherited mappings.
-    """
-    config_child_models = getattr(config, "child_models", None)
-    if config_child_models is None:
-        return config
 
+def with_inherited_child_models(
+    config: ConfigT,
+    child_models: Mapping[type[BaseModel], ConfigT],
+) -> ConfigT:
     merged_child_models = dict(child_models)
-    merged_child_models.update(config_child_models)
+    merged_child_models.update(config.child_models)
 
-    if merged_child_models == config_child_models:
+    if merged_child_models == config.child_models:
         return config
 
     return config.model_copy(update={"child_models": merged_child_models})
@@ -63,53 +71,21 @@ def default_model_name(source_model: type[BaseModel], suffix: str) -> str:
     return f"{source_model.__name__}{suffix}"
 
 
-def transform_model(
+def build_transformed_model(
     source_model: type[BaseModel],
     *,
-    config: Any,
+    config: ConfigT,
     operation: OperationName,
     suffix: str,
-    mutate_payload: PayloadMutator,
-    make_cache_key: CacheKeyFactory,
-    name: str | None = None,
-) -> type[BaseModel]:
-    """Cached public wrapper for transforming a model."""
-    cache_key = make_cache_key(source_model, config, name)
-    cached_model = _TRANSFORM_MODEL_CACHE.get(cache_key)
-    if cached_model is not None:
-        return cached_model
-
-    transformed_model = _transform_model_uncached(
-        source_model,
-        config=config,
-        operation=operation,
-        suffix=suffix,
-        mutate_payload=mutate_payload,
-        make_cache_key=make_cache_key,
-        name=name,
-    )
-
-    _TRANSFORM_MODEL_CACHE[cache_key] = transformed_model
-    return transformed_model
-
-
-def _transform_model_uncached(
-    source_model: type[BaseModel],
-    *,
-    config: Any,
-    operation: OperationName,
-    suffix: str,
-    mutate_payload: PayloadMutator,
-    make_cache_key: CacheKeyFactory,
+    mutate_payload: PayloadMutator[ConfigT],
+    make_cache_key: CacheKeyFactory[ConfigT],
+    prepare_discriminator_child_config: DiscriminatorChildConfigPreparer[ConfigT],
     name: str | None,
+    use_cache: bool,
 ) -> type[BaseModel]:
     payload = build_payload_from_model(source_model)
-
-    # Operation-specific payload changes such as pick/omit happen first.
     payload = mutate_payload(payload, source_model, config)
 
-    # Recursive annotation rewriting happens before partial/required style
-    # optionality changes are finalized by individual mutators.
     payload = transform_payload_annotations(
         payload,
         config=config,
@@ -117,6 +93,8 @@ def _transform_model_uncached(
         suffix=suffix,
         mutate_payload=mutate_payload,
         make_cache_key=make_cache_key,
+        prepare_discriminator_child_config=prepare_discriminator_child_config,
+        use_cache=use_cache,
     )
 
     model_name = name or default_model_name(source_model, suffix)
@@ -127,14 +105,87 @@ def _transform_model_uncached(
     )
 
 
+def transform_model_cached(
+    source_model: type[BaseModel],
+    *,
+    config: ConfigT,
+    operation: OperationName,
+    suffix: str,
+    mutate_payload: PayloadMutator[ConfigT],
+    make_cache_key: CacheKeyFactory[ConfigT],
+    prepare_discriminator_child_config: DiscriminatorChildConfigPreparer[ConfigT],
+    name: str | None = None,
+) -> type[BaseModel]:
+    cache_key = make_cache_key(source_model, config, name)
+    cached_model = _TRANSFORM_MODEL_CACHE.get(cache_key)
+    if cached_model is not None:
+        return cached_model
+
+    transformed_model = build_transformed_model(
+        source_model,
+        config=config,
+        operation=operation,
+        suffix=suffix,
+        mutate_payload=mutate_payload,
+        make_cache_key=make_cache_key,
+        prepare_discriminator_child_config=prepare_discriminator_child_config,
+        name=name,
+        use_cache=True,
+    )
+
+    _TRANSFORM_MODEL_CACHE[cache_key] = transformed_model
+    return transformed_model
+
+
+def transform_model(
+    source_model: type[BaseModel],
+    *,
+    config: ConfigT,
+    operation: OperationName,
+    suffix: str,
+    mutate_payload: PayloadMutator[ConfigT],
+    make_cache_key: CacheKeyFactory[ConfigT],
+    prepare_discriminator_child_config: DiscriminatorChildConfigPreparer[
+        ConfigT
+    ] = prepare_discriminator_child_config_default,
+    name: str | None = None,
+    use_cache: bool = True,
+) -> type[BaseModel]:
+    if use_cache:
+        return transform_model_cached(
+            source_model,
+            config=config,
+            operation=operation,
+            suffix=suffix,
+            mutate_payload=mutate_payload,
+            make_cache_key=make_cache_key,
+            prepare_discriminator_child_config=prepare_discriminator_child_config,
+            name=name,
+        )
+
+    return build_transformed_model(
+        source_model,
+        config=config,
+        operation=operation,
+        suffix=suffix,
+        mutate_payload=mutate_payload,
+        make_cache_key=make_cache_key,
+        prepare_discriminator_child_config=prepare_discriminator_child_config,
+        name=name,
+        use_cache=False,
+    )
+
+
 def transform_payload_annotations(
     payload: CreateModelPayload,
     *,
-    config: Any,
+    config: ConfigT,
     operation: OperationName,
     suffix: str,
-    mutate_payload: PayloadMutator,
-    make_cache_key: CacheKeyFactory,
+    mutate_payload: PayloadMutator[ConfigT],
+    make_cache_key: CacheKeyFactory[ConfigT],
+    prepare_discriminator_child_config: DiscriminatorChildConfigPreparer[ConfigT],
+    use_cache: bool,
 ) -> CreateModelPayload:
     transformed: CreateModelPayload = {}
 
@@ -147,6 +198,8 @@ def transform_payload_annotations(
                 suffix=suffix,
                 mutate_payload=mutate_payload,
                 make_cache_key=make_cache_key,
+                prepare_discriminator_child_config=prepare_discriminator_child_config,
+                use_cache=use_cache,
             ),
             default,
         )
@@ -155,19 +208,24 @@ def transform_payload_annotations(
 
 
 def transform_annotation(
-    annotation: Any,
+    annotation: object,
     *,
-    child_models: Mapping[type[BaseModel], Any],
+    child_models: Mapping[type[BaseModel], ConfigT],
     operation: OperationName,
     suffix: str,
-    mutate_payload: PayloadMutator,
-    make_cache_key: CacheKeyFactory,
-) -> Any:
-    """Recursively transform BaseModel references inside an annotation."""
-    if is_basemodel_type(annotation):
+    mutate_payload: PayloadMutator[ConfigT],
+    make_cache_key: CacheKeyFactory[ConfigT],
+    prepare_discriminator_child_config: DiscriminatorChildConfigPreparer[ConfigT],
+    use_cache: bool,
+) -> object:
+    origin = get_origin(annotation)
+    args = get_args(annotation)
+
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
         child_config = child_models.get(annotation)
         if child_config is None:
             return annotation
+
         effective_child_config = with_inherited_child_models(child_config, child_models)
         return transform_model(
             annotation,
@@ -176,264 +234,140 @@ def transform_annotation(
             suffix=suffix,
             mutate_payload=mutate_payload,
             make_cache_key=make_cache_key,
+            prepare_discriminator_child_config=prepare_discriminator_child_config,
+            use_cache=use_cache,
         )
 
-    if is_annotated(annotation):
-        inner, metadata = split_annotated(annotation)
-        discriminator = extract_discriminator(metadata)
+    if origin is Annotated:
+        base_annotation, *metadata = args
+        discriminator = next(
+            (item for item in metadata if hasattr(item, "discriminator")),
+            None,
+        )
+
         if discriminator is not None:
-            transformed_inner = transform_discriminated_union(
-                inner,
-                operation=operation,
+            transformed_base = transform_discriminated_union(
+                base_annotation,
                 child_models=child_models,
+                operation=operation,
+                suffix=suffix,
+                mutate_payload=mutate_payload,
+                make_cache_key=make_cache_key,
+                prepare_discriminator_child_config=prepare_discriminator_child_config,
                 discriminator_key=discriminator.discriminator,
-                suffix=suffix,
-                mutate_payload=mutate_payload,
-                make_cache_key=make_cache_key,
+                use_cache=use_cache,
             )
-            return Annotated[transformed_inner, *metadata]
         else:
-            transformed_inner = transform_annotation(
-                inner,
+            transformed_base = transform_annotation(
+                base_annotation,
                 child_models=child_models,
                 operation=operation,
                 suffix=suffix,
                 mutate_payload=mutate_payload,
                 make_cache_key=make_cache_key,
+                prepare_discriminator_child_config=prepare_discriminator_child_config,
+                use_cache=use_cache,
             )
-        return rebuild_annotated(transformed_inner, metadata)
 
-    origin = get_origin(annotation)
-    args = get_args(annotation)
+        return Annotated[transformed_base, *metadata]
 
-    if origin is list:
-        return list[
+    if origin in (list, set, frozenset):
+        transformed_args = tuple(
             transform_annotation(
-                args[0],
+                arg,
                 child_models=child_models,
                 operation=operation,
                 suffix=suffix,
                 mutate_payload=mutate_payload,
                 make_cache_key=make_cache_key,
+                prepare_discriminator_child_config=prepare_discriminator_child_config,
+                use_cache=use_cache,
             )
-        ]
+            for arg in args
+        )
+        return origin[transformed_args]
 
     if origin is dict:
         key_type, value_type = args
-        return dict[
-            key_type,
-            transform_annotation(
-                value_type,
-                child_models=child_models,
-                operation=operation,
-                suffix=suffix,
-                mutate_payload=mutate_payload,
-                make_cache_key=make_cache_key,
-            ),
-        ]
-
-    if origin is tuple:
-        return tuple[
-            tuple(
-                transform_annotation(
-                    arg,
-                    child_models=child_models,
-                    operation=operation,
-                    suffix=suffix,
-                    mutate_payload=mutate_payload,
-                    make_cache_key=make_cache_key,
-                )
-                for arg in args
-            )
-        ]
-
-    if is_union_origin(origin):
-        return rebuild_union(
-            tuple(
-                transform_annotation(
-                    arg,
-                    child_models=child_models,
-                    operation=operation,
-                    suffix=suffix,
-                    mutate_payload=mutate_payload,
-                    make_cache_key=make_cache_key,
-                )
-                for arg in args
-            )
-        )
-
-    return annotation
-
-
-def transform_discriminated_union(
-    union_annotation: Any,
-    *,
-    operation: OperationName,
-    child_models: Mapping[type[BaseModel], Any],
-    discriminator_key: str,
-    suffix: str,
-    mutate_payload: PayloadMutator,
-    make_cache_key: CacheKeyFactory,
-) -> Any:
-    """Transform variants in an Annotated discriminated union."""
-    origin = get_origin(union_annotation)
-    args = get_args(union_annotation)
-
-    if not is_union_origin(origin):
-        return transform_annotation(
-            union_annotation,
+        transformed_value_type = transform_annotation(
+            value_type,
             child_models=child_models,
             operation=operation,
             suffix=suffix,
             mutate_payload=mutate_payload,
             make_cache_key=make_cache_key,
+            prepare_discriminator_child_config=prepare_discriminator_child_config,
+            use_cache=use_cache,
         )
+        return dict[key_type, transformed_value_type]
 
-    transformed_variants: list[Any] = []
+    if origin in (type(None) | str).__class__.__mro__:
+        return annotation
 
-    for variant in args:
-        if not is_basemodel_type(variant):
+    if args:
+        transformed_args = tuple(
+            transform_annotation(
+                arg,
+                child_models=child_models,
+                operation=operation,
+                suffix=suffix,
+                mutate_payload=mutate_payload,
+                make_cache_key=make_cache_key,
+                prepare_discriminator_child_config=prepare_discriminator_child_config,
+                use_cache=use_cache,
+            )
+            for arg in args
+        )
+        try:
+            return origin[transformed_args]
+        except TypeError:
+            return annotation
+
+    return annotation
+
+
+def transform_discriminated_union(
+    union_annotation: object,
+    *,
+    child_models: Mapping[type[BaseModel], ConfigT],
+    operation: OperationName,
+    suffix: str,
+    mutate_payload: PayloadMutator[ConfigT],
+    make_cache_key: CacheKeyFactory[ConfigT],
+    prepare_discriminator_child_config: DiscriminatorChildConfigPreparer[ConfigT],
+    discriminator_key: str,
+    use_cache: bool,
+) -> object:
+    transformed_variants: list[object] = []
+
+    for variant in get_args(union_annotation):
+        if not isinstance(variant, type) or not issubclass(variant, BaseModel):
             transformed_variants.append(variant)
             continue
-
-        if discriminator_key not in variant.model_fields:
-            raise InvalidDiscriminatorError(
-                f"Discriminator field {discriminator_key!r} is missing from variant {variant.__name__}."
-            )
 
         child_config = child_models.get(variant)
         if child_config is None:
             transformed_variants.append(variant)
             continue
 
-        effective_child_config = with_inherited_child_models(child_config, child_models)
-
-        validate_discriminator_config(
+        child_config = prepare_discriminator_child_config(
             variant,
-            effective_child_config,
-            operation=operation,
-            discriminator_key=discriminator_key,
+            child_config,
+            discriminator_key,
         )
-
-        effective_child_config = force_discriminator_required(
-            effective_child_config,
-            source_model=variant,
-            operation=operation,
-            discriminator_key=discriminator_key,
-        )
+        child_config = with_inherited_child_models(child_config, child_models)
 
         transformed_variants.append(
             transform_model(
                 variant,
-                config=effective_child_config,
+                config=child_config,
                 operation=operation,
                 suffix=suffix,
                 mutate_payload=mutate_payload,
                 make_cache_key=make_cache_key,
+                prepare_discriminator_child_config=prepare_discriminator_child_config,
+                use_cache=use_cache,
             )
         )
 
-    return rebuild_union(tuple(transformed_variants))
-
-
-def validate_discriminator_config(
-    variant: type[BaseModel],
-    config: Any,
-    *,
-    operation: OperationName,
-    discriminator_key: str,
-) -> None:
-    """Ensure a child config does not break discriminated-union validation."""
-    fields = getattr(config, "fields", None)
-    include = getattr(config, "include", None)
-    exclude = getattr(config, "exclude", None)
-    partial = getattr(config, "partial", None)
-
-    if operation == "pick" and fields is not None and discriminator_key not in fields:
-        raise InvalidDiscriminatorError(
-            f"Discriminator field {discriminator_key!r} must be included when "
-            f"picking fields for discriminated-union variant {variant.__name__}."
-        )
-
-    if operation == "omit" and fields is not None and discriminator_key in fields:
-        raise InvalidDiscriminatorError(
-            f"Discriminator field {discriminator_key!r} cannot be omitted from "
-            f"discriminated-union variant {variant.__name__}."
-        )
-
-    if operation == "partial" and fields is not None and discriminator_key in fields:
-        raise InvalidDiscriminatorError(
-            f"Discriminator field {discriminator_key!r} cannot be partialed for "
-            f"discriminated-union variant {variant.__name__}."
-        )
-
-    if operation == "patch":
-        if include is not None and discriminator_key not in include:
-            raise InvalidDiscriminatorError(
-                f"Discriminator field {discriminator_key!r} must be included when "
-                f"including fields for discriminated-union variant {variant.__name__}."
-            )
-
-        if exclude is not None and discriminator_key in exclude:
-            raise InvalidDiscriminatorError(
-                f"Discriminator field {discriminator_key!r} cannot be excluded from "
-                f"discriminated-union variant {variant.__name__}."
-            )
-
-        if partial is not None and discriminator_key in partial:
-            raise InvalidDiscriminatorError(
-                f"Discriminator field {discriminator_key!r} cannot be partial for "
-                f"discriminated-union variant {variant.__name__}."
-            )
-
-
-def force_discriminator_required(
-    config: Any,
-    *,
-    source_model: type[BaseModel],
-    operation: OperationName,
-    discriminator_key: str,
-) -> Any:
-    """Keep discriminator fields usable for discriminated-union validation."""
-    if operation == "partial" and hasattr(config, "fields"):
-        fields = config.fields
-
-        if fields is None:
-            return config.model_copy(
-                update={
-                    "fields": frozenset(
-                        field_name for field_name in source_model.model_fields if field_name != discriminator_key
-                    )
-                }
-            )
-
-        return config
-
-    if operation == "patch" and hasattr(config, "partial") and hasattr(config, "required"):
-        partial = config.partial
-        required = config.required or frozenset()
-
-        updates: dict[str, Any] = {
-            "required": frozenset(set(required) | {discriminator_key}),
-        }
-
-        if partial is not None:
-            updates["partial"] = frozenset(set(partial) - {discriminator_key})
-
-        return config.model_copy(update=updates)
-
-    return config
-
-
-def make_payload_discriminator_required(
-    payload: CreateModelPayload,
-    *,
-    discriminator_key: str,
-) -> CreateModelPayload:
-    if discriminator_key not in payload:
-        return payload
-
-    annotation, default = payload[discriminator_key]
-    payload = dict(payload)
-    payload[discriminator_key] = make_field_required(annotation, default)
-    return payload
+    return reduce(or_, transformed_variants)

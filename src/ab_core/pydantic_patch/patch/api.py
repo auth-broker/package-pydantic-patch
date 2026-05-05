@@ -21,20 +21,15 @@ class Patch(Operation):
         required: Collection[str] | None = None,
         child_models: dict[type[BaseModel], PatchConfig] | None = None,
         name: str | None = None,
-        include: Collection[str] | None = None,
-        exclude: Collection[str] | None = None,
+        use_cache: bool = True,
     ) -> type[BaseModel]:
-        if pick is None:
-            pick = include
-        if omit is None:
-            omit = exclude
-
         return create_patch_model(
             cls.source_model,
-            include=pick,
-            exclude=omit,
+            pick=pick,
+            omit=omit,
             partial=partial,
             required=required,
             child_models=child_models,
             name=name,
+            use_cache=use_cache,
         )

@@ -15,7 +15,6 @@ from ab_core.pydantic_patch.core.payload import (
 )
 from ab_core.pydantic_patch.core.types import (
     extract_discriminator,
-    get_discriminator_key,
     is_annotated,
     is_basemodel_type,
     is_union_origin,
@@ -394,15 +393,13 @@ def force_discriminator_required(
 ) -> Any:
     """Keep discriminator fields usable for discriminated-union validation."""
     if operation == "partial" and hasattr(config, "fields"):
-        fields = getattr(config, "fields")
+        fields = config.fields
 
         if fields is None:
             return config.model_copy(
                 update={
                     "fields": frozenset(
-                        field_name
-                        for field_name in source_model.model_fields
-                        if field_name != discriminator_key
+                        field_name for field_name in source_model.model_fields if field_name != discriminator_key
                     )
                 }
             )
@@ -410,8 +407,8 @@ def force_discriminator_required(
         return config
 
     if operation == "patch" and hasattr(config, "partial") and hasattr(config, "required"):
-        partial = getattr(config, "partial")
-        required = getattr(config, "required") or frozenset()
+        partial = config.partial
+        required = config.required or frozenset()
 
         updates: dict[str, Any] = {
             "required": frozenset(set(required) | {discriminator_key}),
@@ -437,4 +434,3 @@ def make_payload_discriminator_required(
     payload = dict(payload)
     payload[discriminator_key] = make_field_required(annotation, default)
     return payload
-

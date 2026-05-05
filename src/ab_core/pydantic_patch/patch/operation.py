@@ -24,7 +24,6 @@ from ab_core.pydantic_patch.core.payload import (
 from ab_core.pydantic_patch.core.transform import transform_payload_annotations
 from ab_core.pydantic_patch.patch.config import PatchConfig
 
-
 _PATCH_MODEL_CACHE: dict[OperationCacheKey, type[BaseModel]] = {}
 
 

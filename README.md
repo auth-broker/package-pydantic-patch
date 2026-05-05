@@ -17,7 +17,7 @@ Python Pydantic support of TypeScript-style utility types, including Partial, Re
 
 🦜🕸️
 
-[![CI](https://github.com/auth-broker/package-template/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/auth-broker/package-template/actions/workflows/ci.yaml)
+[![CI](https://github.com/auth-broker/package-pydantic-patch/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/auth-broker/package-pydantic-patch/actions/workflows/ci.yaml)
 
 </div>
 
@@ -137,7 +137,7 @@ command:
 **Using pip**:
 
 ```shell
-pip install python-package-template
+pip install ab-pydantic-patch
 ```
 
 **Using UV**
@@ -148,7 +148,7 @@ provide the full url. https://github.com/astral-sh/uv/issues/10140
 Add the dependency
 
 ```shell
-uv add python-package-template
+uv add ab-pydantic-patch
 ```
 
 **Using poetry**:
@@ -156,22 +156,488 @@ uv add python-package-template
 Then run the following command to install the package:
 
 ```shell
-poetry add python-package-template
+poetry add ab-pydantic-patch
 ```
 
-### How tos
+## How Tos
 
-**Example Usage**
+---
+
+### Pick
+
+Select a subset of fields.
+
+#### Python
+
+**Before**
 
 ```python
-# Please update this based on your package!
-
-from ab_core.template import placeholder_func
-
-
-if __name__ == "__main__":
-    print("This is a placeholder: ", placeholdder_func())
+class User(BaseModel):
+    id: int
+    name: str
+    email: str
 ```
+
+**Transform**
+
+```python
+UserPick = Pick[User](fields={"id", "name"})
+```
+
+**After (conceptual)**
+
+```python
+class UserPick(BaseModel):
+    id: int
+    name: str
+```
+
+---
+
+#### TypeScript equivalent
+
+```ts
+type User = {
+  id: number
+  name: string
+  email: string
+}
+
+type UserPick = Pick<User, "id" | "name">
+```
+
+---
+
+### Omit
+
+Remove specific fields.
+
+#### Python
+
+**Before**
+
+```python
+class User(BaseModel):
+    id: int
+    name: str
+    email: str
+```
+
+**Transform**
+
+```python
+UserOmit = Omit[User](fields={"email"})
+```
+
+**After (conceptual)**
+
+```python
+class UserOmit(BaseModel):
+    id: int
+    name: str
+```
+
+---
+
+#### TypeScript equivalent
+
+```ts
+type User = {
+  id: number
+  name: string
+  email: string
+}
+
+type UserOmit = Omit<User, "email">
+```
+
+---
+
+### Partial
+
+Make fields optional.
+
+#### Python
+
+**Before**
+
+```python
+class User(BaseModel):
+    id: int
+    name: str
+```
+
+**Transform**
+
+```python
+UserPartial = Partial[User](fields={"name"})
+```
+
+**After (conceptual)**
+
+```python
+class UserPartial(BaseModel):
+    id: int
+    name: str | None = None
+```
+
+---
+
+#### TypeScript equivalent
+
+```ts
+type User = {
+  id: number
+  name: string
+}
+
+type UserPartial = Partial<Pick<User, "name">> & Pick<User, "id">
+```
+
+---
+
+### Required
+
+Force fields to be required.
+
+#### Python
+
+**Before**
+
+```python
+class User(BaseModel):
+    id: int | None = None
+    name: str | None = None
+```
+
+**Transform**
+
+```python
+UserRequired = Required[User](fields={"id"})
+```
+
+**After (conceptual)**
+
+```python
+class UserRequired(BaseModel):
+    id: int
+    name: str | None = None
+```
+
+---
+
+#### TypeScript equivalent
+
+```ts
+type User = {
+  id?: number
+  name?: string
+}
+
+type UserRequired = Required<Pick<User, "id">> & Omit<User, "id">
+```
+
+---
+
+### Patch (combine operations)
+
+#### Python
+
+**Before**
+
+```python
+class User(BaseModel):
+    id: int
+    name: str
+    email: str
+```
+
+**Transform**
+
+```python
+UserPatch = Patch[User](
+    pick={"id", "name"},
+    partial={"name"},
+    required={"id"},
+)
+```
+
+**After (conceptual)**
+
+```python
+class UserPatch(BaseModel):
+    id: int
+    name: str | None = None
+```
+
+---
+
+### `set()` vs `None`
+
+```python
+Patch[User](partial=None)
+```
+
+→ all fields optional
+
+```python
+class UserPatch(BaseModel):
+    id: int | None = None
+    name: str | None = None
+    email: str | None = None
+```
+
+---
+
+```python
+Patch[User](partial=set())
+```
+
+→ no fields optional
+
+```python
+class UserPatch(BaseModel):
+    id: int
+    name: str
+    email: str
+```
+
+---
+
+### Parent / Child (nested models)
+
+#### Python
+
+**Before**
+
+```python
+class Pet(BaseModel):
+    id: int
+    name: str
+    type: str
+
+
+class Household(BaseModel):
+    id: int
+    owner_name: str
+    pets: list[Pet]
+```
+
+---
+
+**Transform**
+
+```python
+HouseholdPatch = Patch[Household](
+    pick={"id", "pets"},
+    required={"id"},
+    child_models={
+        Pet: PatchConfig(
+            pick={"id", "name"},
+            partial={"name"},
+            required={"id"},
+        )
+    }
+)
+```
+
+---
+
+**After (conceptual)**
+
+```python
+class PetPatch(BaseModel):
+    id: int
+    name: str | None = None
+
+
+class HouseholdPatch(BaseModel):
+    id: int
+    pets: list[PetPatch] | None = None
+```
+
+---
+
+### Discriminated Union
+
+#### Python
+
+**Before**
+
+```python
+from typing import Annotated, Union, Literal
+from pydantic import Field
+
+
+class Cat(BaseModel):
+    kind: Literal["cat"]
+    id: int
+    name: str
+
+
+class Dog(BaseModel):
+    kind: Literal["dog"]
+    id: int
+    name: str
+
+
+Pet = Annotated[Union[Cat, Dog], Field(discriminator="kind")]
+
+
+class Owner(BaseModel):
+    pet: Pet
+```
+
+---
+
+**Transform**
+
+```python
+OwnerPatch = Patch[Owner](
+    pick={"pet"},
+    child_models={
+        Cat: PatchConfig(
+            pick={"kind", "id", "name"},
+            partial={"name"},
+            required={"id"},
+        ),
+        Dog: PatchConfig(
+            pick={"kind", "id", "name"},
+            partial={"name"},
+            required={"id"},
+        ),
+    }
+)
+```
+
+---
+
+**After (conceptual)**
+
+```python
+class CatPatch(BaseModel):
+    kind: Literal["cat"]
+    id: int
+    name: str | None = None
+
+
+class DogPatch(BaseModel):
+    kind: Literal["dog"]
+    id: int
+    name: str | None = None
+
+
+PetPatch = Annotated[
+    CatPatch | DogPatch,
+    Field(discriminator="kind")
+]
+
+
+class OwnerPatch(BaseModel):
+    pet: PetPatch | None = None
+```
+
+---
+
+### SQLModel Relationships
+
+#### Python
+
+**Before**
+
+```python
+from sqlmodel import SQLModel, Field, Relationship
+
+
+class Pet(SQLModel, table=True):
+    id: int = Field(primary_key=True)
+    name: str
+    household_id: int | None = Field(default=None, foreign_key="household.id")
+
+
+class Household(SQLModel, table=True):
+    id: int = Field(primary_key=True)
+    pets: list[Pet] = Relationship(back_populates="household")
+```
+
+---
+
+**Transform**
+
+```python
+HouseholdPatch = Patch[Household](
+    pick={"id", "pets"},
+    required={"id"},
+    child_models={
+        Pet: PatchConfig(
+            pick={"id", "name"},
+            required={"id"},
+        )
+    }
+)
+```
+
+---
+
+**After (conceptual)**
+
+```python
+class PetPatch(BaseModel):
+    id: int
+    name: str | None = None
+
+
+class HouseholdPatch(BaseModel):
+    id: int
+    pets: list[PetPatch] | None = None
+```
+
+---
+
+## Additional Notes
+
+### Caching
+
+* Same model + same config → same generated class
+* Nested models reuse generated types
+* Improves performance and consistency
+
+---
+
+### Discriminated unions
+
+* Discriminator field is always required
+* Cannot be omitted or made optional
+* Each variant is transformed independently
+
+---
+
+### Operation order
+
+Applied in this order:
+
+1. pick / omit
+2. partial
+3. required (final override)
+
+---
+
+### Validation / Errors
+
+* Unknown fields → error
+* Required field removed by pick/omit → error
+* Discriminator misconfiguration → error
+* Invalid nested configs → error
+
+---
+
+### Supported types
+
+* `BaseModel`
+* `list[...]`
+* `dict[...]`
+* `Union` / `Annotated`
+* SQLModel (including relationships)
 
 ______________________________________________________________________
 
@@ -200,4 +666,4 @@ We publish to PyPI using Github releases. Steps are as follows:
    will trigger the `publish` workflow. In the Release window, type in the
    version number and it will prompt to create a new tag.
 3. Verify the release in
-   [PyPI](https://pypi.org/project/python-package-template/)
+   [PyPI](https://pypi.org/project/ab-pydantic-patch/)

@@ -1,5 +1,7 @@
 """Field validation and payload mutation helpers."""
 
+from functools import reduce
+from operator import or_
 from typing import Any, get_args, get_origin
 
 from pydantic import BaseModel
@@ -69,7 +71,31 @@ def make_optional(annotation: Any) -> Any:
     """Return an annotation that allows None."""
     if allows_none(annotation):
         return annotation
+
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return annotation
+
+    origin = get_origin(annotation)
+    if origin in (list, dict, tuple):
+        return annotation
+
     return annotation | None
+
+
+def strip_none(annotation: Any) -> Any:
+    """Remove None from an annotation if it is a union."""
+    origin = get_origin(annotation)
+    args = get_args(annotation)
+
+    if origin is None or type(None) not in args:
+        return annotation
+
+    non_none_args = tuple(arg for arg in args if arg is not type(None))
+    if not non_none_args:
+        return annotation
+    if len(non_none_args) == 1:
+        return non_none_args[0]
+    return reduce(or_, non_none_args)
 
 
 def make_field_optional(annotation: Any, default: Any) -> tuple[Any, Any]:
@@ -79,4 +105,4 @@ def make_field_optional(annotation: Any, default: Any) -> tuple[Any, Any]:
 
 def make_field_required(annotation: Any, default: Any) -> tuple[Any, Any]:
     """Return a create_model field definition where the field is required."""
-    return annotation, ...
+    return strip_none(annotation), ...

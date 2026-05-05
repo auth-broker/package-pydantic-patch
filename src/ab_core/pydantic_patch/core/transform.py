@@ -38,6 +38,24 @@ CacheKeyFactory = Callable[[type[BaseModel], Any, str | None], OperationCacheKey
 _TRANSFORM_MODEL_CACHE: dict[OperationCacheKey, type[BaseModel]] = {}
 
 
+def with_inherited_child_models(config: Any, child_models: Mapping[type[BaseModel], Any]) -> Any:
+    """Return a config whose child model map includes inherited entries.
+
+    Child-specific mappings take precedence over inherited mappings.
+    """
+    config_child_models = getattr(config, "child_models", None)
+    if config_child_models is None:
+        return config
+
+    merged_child_models = dict(child_models)
+    merged_child_models.update(config_child_models)
+
+    if merged_child_models == config_child_models:
+        return config
+
+    return config.model_copy(update={"child_models": merged_child_models})
+
+
 def default_model_name(source_model: type[BaseModel], suffix: str) -> str:
     return f"{source_model.__name__}{suffix}"
 
@@ -147,9 +165,10 @@ def transform_annotation(
         child_config = child_models.get(annotation)
         if child_config is None:
             return annotation
+        effective_child_config = with_inherited_child_models(child_config, child_models)
         return transform_model(
             annotation,
-            config=child_config,
+            config=effective_child_config,
             operation=operation,
             suffix=suffix,
             mutate_payload=mutate_payload,
@@ -284,16 +303,19 @@ def transform_discriminated_union(
             transformed_variants.append(variant)
             continue
 
+        effective_child_config = with_inherited_child_models(child_config, child_models)
+
         validate_discriminator_config(
             variant,
-            child_config,
+            effective_child_config,
+            operation=operation,
             discriminator_key=discriminator_key,
         )
 
         transformed_variants.append(
             transform_model(
                 variant,
-                config=child_config,
+                config=effective_child_config,
                 operation=operation,
                 suffix=suffix,
                 mutate_payload=mutate_payload,
@@ -308,6 +330,7 @@ def validate_discriminator_config(
     variant: type[BaseModel],
     config: Any,
     *,
+    operation: str,
     discriminator_key: str,
 ) -> None:
     """Ensure a child config does not break discriminated-union validation."""
@@ -316,31 +339,40 @@ def validate_discriminator_config(
     exclude = getattr(config, "exclude", None)
     partial = getattr(config, "partial", None)
 
-    if fields is not None and discriminator_key not in fields:
+    if operation == "pick" and fields is not None and discriminator_key not in fields:
         raise InvalidDiscriminatorError(
             f"Discriminator field {discriminator_key!r} must be included when "
             f"picking fields for discriminated-union variant {variant.__name__}."
         )
 
-    if include is not None and discriminator_key not in include:
+    if operation == "omit" and fields is not None and discriminator_key in fields:
         raise InvalidDiscriminatorError(
-            f"Discriminator field {discriminator_key!r} must be included when "
-            f"including fields for discriminated-union variant {variant.__name__}."
-        )
-
-    if exclude is not None and discriminator_key in exclude:
-        raise InvalidDiscriminatorError(
-            f"Discriminator field {discriminator_key!r} cannot be excluded from "
+            f"Discriminator field {discriminator_key!r} cannot be omitted from "
             f"discriminated-union variant {variant.__name__}."
         )
 
-    if partial is None:
-        # Partial-all patch/partial configs would make the discriminator optional.
-        # The specific operation mutator must force it required later if needed.
-        return
-
-    if discriminator_key in partial:
+    if operation == "partial" and fields is not None and discriminator_key in fields:
         raise InvalidDiscriminatorError(
-            f"Discriminator field {discriminator_key!r} cannot be partial for "
+            f"Discriminator field {discriminator_key!r} cannot be partialed for "
             f"discriminated-union variant {variant.__name__}."
         )
+
+    if operation == "patch":
+        if include is not None and discriminator_key not in include:
+            raise InvalidDiscriminatorError(
+                f"Discriminator field {discriminator_key!r} must be included when "
+                f"including fields for discriminated-union variant {variant.__name__}."
+            )
+
+        if exclude is not None and discriminator_key in exclude:
+            raise InvalidDiscriminatorError(
+                f"Discriminator field {discriminator_key!r} cannot be excluded from "
+                f"discriminated-union variant {variant.__name__}."
+            )
+
+        if partial is not None and discriminator_key in partial:
+            raise InvalidDiscriminatorError(
+                f"Discriminator field {discriminator_key!r} cannot be partial for "
+                f"discriminated-union variant {variant.__name__}."
+            )
+

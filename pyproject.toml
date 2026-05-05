@@ -25,7 +25,7 @@ description = "Python Pydantic support of TypeScript-style utility types, includ
 name = "ab-pydantic-patch"
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
-version = "0.1.0"
+version = "1.0.0"
 
 [tool.hatch.build.targets.sdist]
 include = ["src/ab_core"]

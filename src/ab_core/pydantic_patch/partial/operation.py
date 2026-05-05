@@ -26,6 +26,7 @@ def apply_partial_payload(
     model: type[BaseModel],
     config: PartialConfig,
 ) -> CreateModelPayload:
+    """Mark configured payload fields as optional."""
     validate_fields_exist_on_model(model, config.fields, operation="partial")
     validate_fields_exist_in_payload(payload, config.fields, model=model, operation="partial")
 
@@ -44,6 +45,7 @@ def make_partial_cache_key(
     config: PartialConfig,
     name: str | None,
 ) -> OperationCacheKey:
+    """Build a stable cache key for a partial transformation."""
     child_keys = {
         child_model: make_partial_cache_key(child_model, child_config, None)
         for child_model, child_config in config.child_models.items()
@@ -62,6 +64,7 @@ def prepare_partial_discriminator_child_config(
     config: PartialConfig,
     discriminator_key: str,
 ) -> PartialConfig:
+    """Ensure discriminator fields remain required for union variants."""
     if config.fields is None:
         return config.model_copy(
             update={
@@ -88,6 +91,7 @@ def create_partial_model(
     name: str | None = None,
     use_cache: bool = True,
 ) -> type[BaseModel]:
+    """Create a partial-transformed model from a source model."""
     config = PartialConfig(fields=normalise_fields(fields), child_models=child_models or {})
     return transform_model(
         model,

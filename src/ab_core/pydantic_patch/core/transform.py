@@ -3,7 +3,7 @@
 from collections.abc import Callable, Mapping
 from functools import reduce
 from operator import or_
-from typing import Annotated, Protocol, Self, TypeAlias, TypeVar, get_args, get_origin
+from typing import Annotated, Protocol, Self, TypeVar, get_args, get_origin
 
 from pydantic import BaseModel
 
@@ -16,6 +16,8 @@ from ab_core.pydantic_patch.core.payload import (
 
 
 class TransformConfig(Protocol):
+    """Protocol for operation config models used in recursive transforms."""
+
     child_models: Mapping[type[BaseModel], Self]
 
     def model_copy(
@@ -23,22 +25,24 @@ class TransformConfig(Protocol):
         *,
         update: Mapping[str, object] | None = None,
         deep: bool = False,
-    ) -> Self: ...
+    ) -> Self:
+        """Return a copy of the config, optionally with updated values."""
+        ...
 
 
 ConfigT = TypeVar("ConfigT", bound=TransformConfig)
 
-PayloadMutator: TypeAlias = Callable[
+type PayloadMutator[ConfigT: TransformConfig] = Callable[
     [CreateModelPayload, type[BaseModel], ConfigT],
     CreateModelPayload,
 ]
 
-CacheKeyFactory: TypeAlias = Callable[
+type CacheKeyFactory[ConfigT: TransformConfig] = Callable[
     [type[BaseModel], ConfigT, str | None],
     OperationCacheKey,
 ]
 
-DiscriminatorChildConfigPreparer: TypeAlias = Callable[
+type DiscriminatorChildConfigPreparer[ConfigT: TransformConfig] = Callable[
     [type[BaseModel], ConfigT, str],
     ConfigT,
 ]
@@ -46,11 +50,12 @@ DiscriminatorChildConfigPreparer: TypeAlias = Callable[
 _TRANSFORM_MODEL_CACHE: dict[OperationCacheKey, type[BaseModel]] = {}
 
 
-def prepare_discriminator_child_config_default(
+def prepare_discriminator_child_config_default[ConfigT: TransformConfig](
     _source_model: type[BaseModel],
     config: ConfigT,
     _discriminator_key: str,
 ) -> ConfigT:
+    """Return child config unchanged for discriminator-aware transforms."""
     return config
 
 
@@ -58,6 +63,7 @@ def with_inherited_child_models(
     config: ConfigT,
     child_models: Mapping[type[BaseModel], ConfigT],
 ) -> ConfigT:
+    """Merge inherited child model config into a specific child config."""
     merged_child_models = dict(child_models)
     merged_child_models.update(config.child_models)
 
@@ -68,6 +74,7 @@ def with_inherited_child_models(
 
 
 def default_model_name(source_model: type[BaseModel], suffix: str) -> str:
+    """Build the default transformed model name."""
     return f"{source_model.__name__}{suffix}"
 
 
@@ -83,6 +90,7 @@ def build_transformed_model(
     name: str | None,
     use_cache: bool,
 ) -> type[BaseModel]:
+    """Build a transformed model and recursively transform nested annotations."""
     payload = build_payload_from_model(source_model)
     payload = mutate_payload(payload, source_model, config)
 
@@ -116,6 +124,7 @@ def transform_model_cached(
     prepare_discriminator_child_config: DiscriminatorChildConfigPreparer[ConfigT],
     name: str | None = None,
 ) -> type[BaseModel]:
+    """Transform a model using and populating the shared operation cache."""
     cache_key = make_cache_key(source_model, config, name)
     cached_model = _TRANSFORM_MODEL_CACHE.get(cache_key)
     if cached_model is not None:
@@ -151,6 +160,7 @@ def transform_model(
     name: str | None = None,
     use_cache: bool = True,
 ) -> type[BaseModel]:
+    """Transform a model according to an operation configuration."""
     if use_cache:
         return transform_model_cached(
             source_model,
@@ -187,6 +197,7 @@ def transform_payload_annotations(
     prepare_discriminator_child_config: DiscriminatorChildConfigPreparer[ConfigT],
     use_cache: bool,
 ) -> CreateModelPayload:
+    """Recursively transform all field annotations in a payload."""
     transformed: CreateModelPayload = {}
 
     for field_name, (annotation, default) in payload.items():
@@ -218,6 +229,7 @@ def transform_annotation(
     prepare_discriminator_child_config: DiscriminatorChildConfigPreparer[ConfigT],
     use_cache: bool,
 ) -> object:
+    """Transform a single annotation, handling models, containers, and unions."""
     origin = get_origin(annotation)
     args = get_args(annotation)
 
@@ -338,6 +350,7 @@ def transform_discriminated_union(
     discriminator_key: str,
     use_cache: bool,
 ) -> object:
+    """Transform discriminated union variants while preserving discriminator rules."""
     transformed_variants: list[object] = []
 
     for variant in get_args(union_annotation):

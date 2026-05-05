@@ -19,6 +19,7 @@ class Omit(Operation):
         child_models: dict[type[BaseModel], OmitConfig] | None = None,
         name: str | None = None,
     ) -> type[BaseModel]:
+        """Create and return an omit-transformed model class."""
         return create_omit_model(
             cls.source_model,
             fields=fields,

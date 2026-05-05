@@ -19,6 +19,7 @@ class Pick(Operation):
         child_models: dict[type[BaseModel], PickConfig] | None = None,
         name: str | None = None,
     ) -> type[BaseModel]:
+        """Create and return a pick-transformed model class."""
         return create_pick_model(
             cls.source_model,
             fields=fields,

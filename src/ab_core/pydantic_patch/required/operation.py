@@ -25,6 +25,7 @@ def apply_required_payload(
     model: type[BaseModel],
     config: RequiredConfig,
 ) -> CreateModelPayload:
+    """Mark configured payload fields as required."""
     validate_fields_exist_on_model(model, config.fields, operation="required")
     validate_fields_exist_in_payload(payload, config.fields, model=model, operation="required")
 
@@ -42,6 +43,7 @@ def make_required_cache_key(
     config: RequiredConfig,
     name: str | None,
 ) -> OperationCacheKey:
+    """Build a stable cache key for a required transformation."""
     child_keys = {
         child_model: make_required_cache_key(child_model, child_config, None)
         for child_model, child_config in config.child_models.items()
@@ -63,6 +65,7 @@ def create_required_model(
     name: str | None = None,
     use_cache: bool = True,
 ) -> type[BaseModel]:
+    """Create a required-transformed model from a source model."""
     config = RequiredConfig(fields=normalise_fields(fields), child_models=child_models or {})
     return transform_model(
         model,

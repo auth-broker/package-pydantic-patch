@@ -25,6 +25,7 @@ class OperationCacheKey:
 
 
 def normalise_field_key(fields: frozenset[str] | None) -> tuple[str, ...] | None:
+    """Return a stable tuple form for cache keys built from field sets."""
     if fields is None:
         return None
     return tuple(sorted(fields))
@@ -33,6 +34,7 @@ def normalise_field_key(fields: frozenset[str] | None) -> tuple[str, ...] | None
 def sort_child_keys(
     child_keys: Mapping[type[BaseModel], OperationCacheKey],
 ) -> tuple[tuple[type[BaseModel], OperationCacheKey], ...]:
+    """Return child cache keys in deterministic model-name order."""
     return tuple(
         sorted(
             child_keys.items(),

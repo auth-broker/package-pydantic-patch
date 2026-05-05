@@ -22,6 +22,7 @@ def apply_omit_payload(
     model: type[BaseModel],
     config: OmitConfig,
 ) -> CreateModelPayload:
+    """Remove configured fields from a create_model payload."""
     validate_fields_exist_on_model(model, config.fields, operation="omit")
 
     if not config.fields:
@@ -37,6 +38,7 @@ def make_omit_cache_key(
     config: OmitConfig,
     name: str | None,
 ) -> OperationCacheKey:
+    """Build a stable cache key for an omit transformation."""
     child_keys = {
         child_model: make_omit_cache_key(child_model, child_config, None)
         for child_model, child_config in config.child_models.items()
@@ -55,6 +57,7 @@ def prepare_omit_discriminator_child_config(
     config: OmitConfig,
     discriminator_key: str,
 ) -> OmitConfig:
+    """Validate omit config for discriminated-union child transformations."""
     if config.fields is not None and discriminator_key in config.fields:
         raise InvalidDiscriminatorError(
             f"Cannot omit discriminator field {discriminator_key!r} "
@@ -72,6 +75,7 @@ def create_omit_model(
     name: str | None = None,
     use_cache: bool = True,
 ) -> type[BaseModel]:
+    """Create an omit-transformed model from a source model."""
     config = OmitConfig(fields=normalise_fields(fields), child_models=child_models or {})
     return transform_model(
         model,

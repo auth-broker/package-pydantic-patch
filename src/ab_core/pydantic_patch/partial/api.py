@@ -19,6 +19,7 @@ class Partial(Operation):
         child_models: dict[type[BaseModel], PartialConfig] | None = None,
         name: str | None = None,
     ) -> type[BaseModel]:
+        """Create and return a partial-transformed model class."""
         return create_partial_model(
             cls.source_model,
             fields=fields,

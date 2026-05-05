@@ -1,6 +1,5 @@
 """Public Required API."""
 
-from abc import ABC
 from typing import cast
 
 from generic_preserver.utils import canonical_key
@@ -11,11 +10,12 @@ from .classproperty import classproperty
 
 
 @generic_preserver
-class Operation[T: BaseModel](ABC):
+class Operation[T: BaseModel]:
     """Create a model where selected fields are required."""
 
     @classproperty
     def source_model(cls) -> type[BaseModel]:
+        """Return the source model bound to the generic operation type."""
         # NOTE: `generic-preserver` allows us to retrieve the type instance passed to the generic class,
         #       which is how we get the source model.
         #

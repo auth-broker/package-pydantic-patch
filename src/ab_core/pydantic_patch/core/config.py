@@ -1,9 +1,8 @@
 """Shared config helpers."""
 
 from collections.abc import Collection
-from typing import TypeAlias
 
-FieldSet: TypeAlias = frozenset[str] | None
+type FieldSet = frozenset[str] | None
 
 
 def normalise_fields(fields: Collection[str] | None) -> FieldSet:

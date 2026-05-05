@@ -19,6 +19,7 @@ class Required(Operation):
         child_models: dict[type[BaseModel], RequiredConfig] | None = None,
         name: str | None = None,
     ) -> type[BaseModel]:
+        """Create and return a required-transformed model class."""
         return create_required_model(
             cls.source_model,
             fields=fields,

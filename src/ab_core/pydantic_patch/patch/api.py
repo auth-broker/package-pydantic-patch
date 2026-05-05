@@ -23,6 +23,7 @@ class Patch(Operation):
         name: str | None = None,
         use_cache: bool = True,
     ) -> type[BaseModel]:
+        """Create and return a patch-transformed model class."""
         return create_patch_model(
             cls.source_model,
             pick=pick,

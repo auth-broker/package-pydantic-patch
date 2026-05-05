@@ -15,6 +15,7 @@ from ab_core.pydantic_patch.core.types import Any
 
 
 def get_source_field_names(model: type[BaseModel]) -> set[str]:
+    """Return source field names including SQLModel relationship attributes."""
     field_names = set(model.model_fields)
 
     sqlmodel_relationships = getattr(model, "__sqlmodel_relationships__", {})

@@ -22,6 +22,7 @@ def apply_pick_payload(
     model: type[BaseModel],
     config: PickConfig,
 ) -> CreateModelPayload:
+    """Keep only configured fields in a create_model payload."""
     validate_fields_exist_on_model(model, config.fields, operation="pick")
 
     if config.fields is None:
@@ -35,6 +36,7 @@ def make_pick_cache_key(
     config: PickConfig,
     name: str | None,
 ) -> OperationCacheKey:
+    """Build a stable cache key for a pick transformation."""
     child_keys = {
         child_model: make_pick_cache_key(child_model, child_config, None)
         for child_model, child_config in config.child_models.items()
@@ -53,6 +55,7 @@ def prepare_pick_discriminator_child_config(
     config: PickConfig,
     discriminator_key: str,
 ) -> PickConfig:
+    """Validate pick config for discriminated-union child transformations."""
     if config.fields is not None and discriminator_key not in config.fields:
         raise InvalidDiscriminatorError(
             f"Cannot omit discriminator field {discriminator_key!r} "
@@ -70,6 +73,7 @@ def create_pick_model(
     name: str | None = None,
     use_cache: bool = True,
 ) -> type[BaseModel]:
+    """Create a pick-transformed model from a source model."""
     config = PickConfig(fields=normalise_fields(fields), child_models=child_models or {})
     return transform_model(
         model,

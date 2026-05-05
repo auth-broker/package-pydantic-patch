@@ -27,6 +27,7 @@ def apply_patch_payload(
     model: type[BaseModel],
     config: PatchConfig,
 ) -> CreateModelPayload:
+    """Apply pick/omit/partial/required rules to a model payload."""
     validate_fields_exist_on_model(model, config.pick, operation="pick")
     validate_fields_exist_on_model(model, config.omit, operation="omit")
     validate_fields_exist_on_model(model, config.partial, operation="partial")
@@ -79,6 +80,7 @@ def make_patch_cache_key(
     config: PatchConfig,
     name: str | None,
 ) -> OperationCacheKey:
+    """Build a stable cache key for a composed patch transformation."""
     child_keys = {
         child_model: make_patch_cache_key(child_model, child_config, None)
         for child_model, child_config in config.child_models.items()
@@ -100,6 +102,7 @@ def prepare_patch_discriminator_child_config(
     config: PatchConfig,
     discriminator_key: str,
 ) -> PatchConfig:
+    """Validate and enforce discriminator rules for child patch configs."""
     if config.pick is not None and discriminator_key not in config.pick:
         raise InvalidDiscriminatorError(
             f"Cannot omit discriminator field {discriminator_key!r} "
@@ -136,6 +139,7 @@ def create_patch_model(
     name: str | None = None,
     use_cache: bool = True,
 ) -> type[BaseModel]:
+    """Create a patch-transformed model from composed field operations."""
     patch_config = config or PatchConfig(
         pick=normalise_fields(pick),
         omit=normalise_fields(omit),

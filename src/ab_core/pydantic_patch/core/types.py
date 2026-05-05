@@ -42,19 +42,23 @@ def get_discriminator_key(discriminator: Discriminator) -> str:
 
 
 def is_annotated(annotation: Any) -> bool:
+    """Return whether an annotation uses typing.Annotated."""
     return get_origin(annotation) is Annotated
 
 
 def split_annotated(annotation: Any) -> tuple[Any, tuple[Any, ...]]:
+    """Split an Annotated value into inner type and metadata tuple."""
     args = get_args(annotation)
     return args[0], args[1:]
 
 
 def rebuild_annotated(inner: Any, metadata: tuple[Any, ...]) -> Any:
+    """Rebuild an Annotated value from inner type and metadata."""
     return Annotated[inner, *metadata]
 
 
 def union_args(annotation: Any) -> tuple[Any, ...]:
+    """Return union args for a union annotation, else an empty tuple."""
     origin = get_origin(annotation)
     if is_union_origin(origin):
         return get_args(annotation)

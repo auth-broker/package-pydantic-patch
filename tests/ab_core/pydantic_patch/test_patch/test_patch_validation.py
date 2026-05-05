@@ -77,7 +77,6 @@ def test_unsupported_arbitrary_non_pydantic_type_is_preserved(models):
 
 
 def test_mixed_union_with_non_basemodel_variant_is_preserved_for_non_model_member(models):
-    Address = models["Address"]
     MixedUnionPayload = models["MixedUnionPayload"]
 
     result = create_pick_model(

@@ -93,7 +93,7 @@ def seed(db: Database):
 @asynccontextmanager
 @inject
 async def lifespan(
-    app: FastAPI,
+    _app: FastAPI,
     db: Annotated[Database, Depends(Database, persist=True)],  # cold start load db into cache
 ):
     seed(db)

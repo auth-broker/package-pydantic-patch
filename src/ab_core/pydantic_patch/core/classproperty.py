@@ -1,3 +1,5 @@
+"""Why doesn't Python have class properties?!"""
+
 class classproperty:
     def __init__(self, func):
         self.func = func

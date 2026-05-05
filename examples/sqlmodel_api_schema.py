@@ -1,215 +1,160 @@
+import os
 from contextlib import asynccontextmanager
-from typing import Annotated, Literal
+from typing import Annotated
 
+from fastapi import Depends as FDepends
 from fastapi import FastAPI, HTTPException
-from pydantic import Discriminator
-from sqlmodel import Field, Relationship, Session, SQLModel, create_engine, select
+from sqlalchemy.orm import Session
+from sqlmodel import Field, Relationship, SQLModel
 
-from ab_core.pydantic_patch.patch import PatchConfig, create_patch_model
+from ab_core.database.databases import Database
+from ab_core.database.session_context import db_session_sync
+from ab_core.pydantic_patch.patch import Patch, PatchConfig
+
+# =========================
+# ENV CONFIG (like pytest)
+# =========================
+
+os.environ.setdefault("DATABASE_TYPE", "SQL_ALCHEMY")
+os.environ.setdefault("DATABASE_SQL_ALCHEMY_URL", "sqlite:///./example.db")
 
 
-class CatProfile(SQLModel, table=True):
+# =========================
+# MODELS
+# =========================
+
+
+class Cat(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str
     lives: int
-    indoor_only: bool = False
     household_id: int | None = Field(default=None, foreign_key="household.id")
 
 
-class DogProfile(SQLModel, table=True):
+class Dog(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str
     bark_volume: int
-    trained: bool = False
-    household_id: int | None = Field(default=None, foreign_key="household.id")
-
-
-class Toy(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    name: str
-    favourite: bool = False
     household_id: int | None = Field(default=None, foreign_key="household.id")
 
 
 class Household(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     owner_name: str
-    address: str
 
-    cats: list[CatProfile] = Relationship()
-    dogs: list[DogProfile] = Relationship()
-    toys: list[Toy] = Relationship()
+    cats: list[Cat] = Relationship()
+    dogs: list[Dog] = Relationship()
 
 
-class CatPatch(SQLModel):
-    kind: Literal["cat"]
-    id: int
-    name: str
-    lives: int
-    indoor_only: bool
+# =========================
+# PATCH MODEL
+# =========================
 
-
-class DogPatch(SQLModel):
-    kind: Literal["dog"]
-    id: int
-    name: str
-    bark_volume: int
-    trained: bool
-
-
-PetPatch = Annotated[CatPatch | DogPatch, Discriminator("kind")]
-
-
-class HouseholdPatchEnvelope(SQLModel):
-    household: Household
-    featured_pet: PetPatch | None = None
-
-
-HouseholdPatchRequest = create_patch_model(
-    HouseholdPatchEnvelope,
-    pick={"household", "featured_pet"},
+HouseholdPatch = Patch[Household](
+    pick={"id", "owner_name", "cats", "dogs"},
+    required={"id"},
     child_models={
-        Household: PatchConfig(
-            pick={"id", "owner_name", "address", "cats", "dogs", "toys"},
+        Cat: PatchConfig(
+            pick={"id", "name"},  # cannot edit lives
             required={"id"},
-            child_models={
-                CatProfile: PatchConfig(
-                    pick={"id", "name", "lives", "indoor_only"},
-                    required={"id"},
-                ),
-                DogProfile: PatchConfig(
-                    pick={"id", "name", "bark_volume", "trained"},
-                    required={"id"},
-                ),
-                Toy: PatchConfig(
-                    pick={"id", "name", "favourite"},
-                    required={"id"},
-                ),
-            },
         ),
-        CatPatch: PatchConfig(
-            pick={"kind", "id", "name", "lives", "indoor_only"},
-            required={"kind", "id"},
-        ),
-        DogPatch: PatchConfig(
-            pick={"kind", "id", "name", "bark_volume", "trained"},
-            required={"kind", "id"},
+        Dog: PatchConfig(
+            pick={"id", "name"},  # cannot edit bark_volume
+            required={"id"},
         ),
     },
 )
 
 
-engine = create_engine(
-    "sqlite:///./examples/cat_dog_patch.db",
-    echo=True,
-    connect_args={"check_same_thread": False},
-)
+# =========================
+# STARTUP / SEED
+# =========================
 
 
-def seed_database() -> None:
-    SQLModel.metadata.create_all(engine)
+def seed(db: Database):
+    db.sync_upgrade_db()
 
-    with Session(engine) as session:
-        existing = session.exec(select(Household)).first()
-        if existing is not None:
+    with db.sync_session() as session:
+        if session.get(Household, 1):
             return
 
         household = Household(
+            id=1,
             owner_name="Monique",
-            address="1 Example Street",
-            cats=[
-                CatProfile(name="Mimi", lives=9, indoor_only=True),
-                CatProfile(name="Kiki", lives=8, indoor_only=False),
-            ],
-            dogs=[
-                DogProfile(name="Scout", bark_volume=4, trained=True),
-            ],
-            toys=[
-                Toy(name="Feather wand", favourite=True),
-                Toy(name="Tennis ball", favourite=False),
-            ],
+            cats=[Cat(id=10, name="Mimi", lives=9)],
+            dogs=[Dog(id=20, name="Scout", bark_volume=5)],
         )
 
         session.add(household)
         session.commit()
 
 
+from ab_core.dependency import Depends, inject
+
+
 @asynccontextmanager
-async def lifespan(_: FastAPI):
-    seed_database()
+@inject
+async def lifespan(
+    app: FastAPI,
+    db: Annotated[Database, Depends(Database, persist=True)],  # cold start load db into cache
+):
+    seed(db)
     yield
 
 
 app = FastAPI(lifespan=lifespan)
 
 
-@app.get("/households/{household_id}", response_model=Household)
-def get_household(household_id: int) -> Household:
-    with Session(engine) as session:
-        household = session.get(Household, household_id)
-        if household is None:
-            raise HTTPException(status_code=404, detail="Household not found")
-        return household
+# =========================
+# API
+# =========================
+@app.patch("/households", response_model=Household)
+def upsert_household(
+    patch: HouseholdPatch,
+    db_session: Annotated[Session, FDepends(db_session_sync)],
+):
+    data = patch.model_dump(exclude_unset=True)
+
+    household = db_session.get(Household, data["id"])
+
+    if household is None:
+        household = Household(**data)
+        db_session.add(household)
+    else:
+        if "owner_name" in data:
+            household.owner_name = data["owner_name"]
+
+        for cat_patch in data.get("cats", []):
+            cat = db_session.get(Cat, cat_patch["id"])
+            if cat is None:
+                raise HTTPException(404, "Cat not found")
+
+            if "name" in cat_patch:
+                cat.name = cat_patch["name"]
+
+        for dog_patch in data.get("dogs", []):
+            dog = db_session.get(Dog, dog_patch["id"])
+            if dog is None:
+                raise HTTPException(404, "Dog not found")
+
+            if "name" in dog_patch:
+                dog.name = dog_patch["name"]
+
+    db_session.commit()
+    db_session.refresh(household)
+    return household
 
 
-@app.patch("/households/{household_id}", response_model=Household)
-def patch_household(
-    household_id: int,
-    request: HouseholdPatchRequest,
-) -> Household:
-    with Session(engine) as session:
-        household = session.get(Household, household_id)
-        if household is None:
-            raise HTTPException(status_code=404, detail="Household not found")
-
-        patch_data = request.model_dump(exclude_unset=True)
-
-        household_patch = patch_data.get("household")
-        if household_patch is not None:
-            if household_patch["id"] != household_id:
-                raise HTTPException(status_code=400, detail="Household id mismatch")
-
-            for field_name in ("owner_name", "address"):
-                if field_name in household_patch:
-                    setattr(household, field_name, household_patch[field_name])
-
-            for cat_patch in household_patch.get("cats", []):
-                cat = session.get(CatProfile, cat_patch["id"])
-                if cat is None or cat.household_id != household_id:
-                    raise HTTPException(status_code=404, detail="Cat not found")
-                for field_name in ("name", "lives", "indoor_only"):
-                    if field_name in cat_patch:
-                        setattr(cat, field_name, cat_patch[field_name])
-
-            for dog_patch in household_patch.get("dogs", []):
-                dog = session.get(DogProfile, dog_patch["id"])
-                if dog is None or dog.household_id != household_id:
-                    raise HTTPException(status_code=404, detail="Dog not found")
-                for field_name in ("name", "bark_volume", "trained"):
-                    if field_name in dog_patch:
-                        setattr(dog, field_name, dog_patch[field_name])
-
-            for toy_patch in household_patch.get("toys", []):
-                toy = session.get(Toy, toy_patch["id"])
-                if toy is None or toy.household_id != household_id:
-                    raise HTTPException(status_code=404, detail="Toy not found")
-                for field_name in ("name", "favourite"):
-                    if field_name in toy_patch:
-                        setattr(toy, field_name, toy_patch[field_name])
-
-        session.add(household)
-        session.commit()
-        session.refresh(household)
-        return household
-
+# =========================
+# RUN
+# =========================
 
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "examples.fastapi_sqlmodel_cat_dog_patch:app",
+        app,
         host="0.0.0.0",
         port=8000,
-        reload=False,  # IMPORTANT: keep False for debugging/breakpoints
-        log_level="debug",
+        reload=False,
     )

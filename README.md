@@ -435,7 +435,6 @@ HouseholdPatch = Patch[Household](
         Pet: PatchConfig(
             pick={"id", "name"},
             partial={"name"},
-            required={"id"},
         )
     }
 )
@@ -499,12 +498,10 @@ OwnerPatch = Patch[Owner](
         Cat: PatchConfig(
             pick={"kind", "id", "name"},
             partial={"name"},
-            required={"id"},
         ),
         Dog: PatchConfig(
             pick={"kind", "id", "name"},
             partial={"name"},
-            required={"id"},
         ),
     }
 )
@@ -571,7 +568,6 @@ HouseholdPatch = Patch[Household](
     child_models={
         Pet: PatchConfig(
             pick={"id", "name"},
-            required={"id"},
         )
     }
 )
@@ -698,15 +694,12 @@ ProjectPatch = Patch[Project](
     child_models={
         ProjectMilestone: PatchConfig(
             pick={"id", "name", "tasks"},
-            required={"id"},
         ),
         ProjectTask: PatchConfig(
             pick={"id", "title", "comments"},
-            required={"id"},
         ),
         TaskComment: PatchConfig(
             pick={"id", "body"},
-            required={"id"},
         ),
     },
 )
@@ -731,6 +724,46 @@ parent: "Project | None" = Relationship(back_populates="milestones")
 
 SQLAlchemy can resolve `"Project"` as a mapped class name, but it cannot resolve
 `"Project | None"` as a relationship target.
+
+---
+
+### Plugin: `recursive_patch_orm_scalar`
+
+When using generated `Patch[...]` models with SQLModel / SQLAlchemy, you can
+apply nested updates directly onto an existing ORM object graph using
+`recursive_patch_orm_scalar(...)`.
+
+This recursively mutates the existing ORM instances in-place so SQLAlchemy can
+track and persist relationship changes naturally.
+
+```python
+ProjectPatch = Patch[Project](
+    pick={"name", "milestones"},
+    child_models={
+        ProjectMilestone: PatchConfig(
+            pick={"id", "name", "tasks"},
+        ),
+        ProjectTask: PatchConfig(
+            pick={"id", "title", "comments"},
+        ),
+        TaskComment: PatchConfig(
+            pick={"id", "body"},
+        ),
+    },
+)
+```
+
+```python
+project = db_session.get(Project, project_id)
+
+recursive_patch_orm_scalar(project, patch)
+
+db_session.add(project)
+db_session.commit()
+```
+
+This is especially useful for FastAPI PATCH endpoints backed by SQLModel
+relationships.
 
 ______________________________________________________________________
 

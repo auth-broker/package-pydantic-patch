@@ -1,3 +1,4 @@
+from pathlib import Path
 from contextlib import asynccontextmanager
 from typing import Annotated, Literal
 
@@ -47,11 +48,11 @@ HouseholdPatch = Patch[Household](
     child_models={
         Cat: PatchConfig(
             pick={"kind", "id", "name"},  # cannot edit lives
-            required={"kind", "id"},
+            required={"kind"},
         ),
         Dog: PatchConfig(
             pick={"kind", "id", "name"},  # cannot edit bark_volume
-            required={"kind", "id"},
+            required={"kind"},
         ),
     },
 )
@@ -118,12 +119,27 @@ def patch_household(
 # RUN
 # =========================
 
+def get_module_path(file_path: str) -> str:
+    parts = (
+        Path(file_path)
+        .resolve()
+        .with_suffix("")
+        .relative_to(Path.cwd())
+        .parts
+    )
+
+    if parts[0] == "src":
+        parts = parts[1:]
+
+    return ".".join(parts)
+
+
 if __name__ == "__main__":
     import uvicorn
 
     # http://localhost:8000/docs#/default/patch_household_households__household_id__patch
     uvicorn.run(
-        app,
+        f"{get_module_path(__file__)}:app",
         host="0.0.0.0",
         port=8000,
         reload=False,

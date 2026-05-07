@@ -15,7 +15,7 @@ class ForwardRefSQLModel(SQLModel, registry=mapper_registry):
 
 class PatchForwardPydanticParent(BaseModel):
     id: int
-    child: "PatchForwardPydanticChild"
+    child: "PatchForwardPydanticChildMissing"
 
 
 class PatchForwardPydanticChild(BaseModel):
@@ -29,7 +29,7 @@ class PatchForwardSqlChild(ForwardRefSQLModel, table=True):
     parent_id: int | None = Field(default=None, foreign_key="patch_forward_sql_parent.id")
     name: str
 
-    parent: "PatchForwardSqlParent | None" = Relationship(back_populates="children")
+    parent: "PatchForwardSqlParentMissing | None" = Relationship(back_populates="children")
 
 
 class PatchForwardSqlParent(ForwardRefSQLModel, table=True):
@@ -54,7 +54,7 @@ class PatchForwardSqlParent(ForwardRefSQLModel, table=True):
         lambda: Patch[PatchForwardPydanticParent](pick={"id", "child"}, partial={"child"}),
     ],
 )
-def test_patch_pydantic_forward_refs_raise_custom_error(operation):
+def test_unresolved_pydantic_forward_refs_raise_custom_error(operation):
     with pytest.raises(ForwardReferencesNotSupported):
         operation()
 
@@ -72,9 +72,28 @@ def test_patch_pydantic_forward_refs_raise_custom_error(operation):
         lambda: Patch[PatchForwardSqlParent](pick={"id", "children"}, partial={"children"}),
     ],
 )
-def test_patch_sqlmodel_relationship_forward_refs_raise_custom_error(operation):
-    with pytest.raises(ForwardReferencesNotSupported):
-        operation()
+def test_resolved_sqlmodel_relationship_forward_refs_are_supported(operation):
+    model = operation()
+
+    assert "children" in model.model_fields
+
+
+class PatchResolvedPydanticParent(BaseModel):
+    id: int
+    child: "PatchResolvedPydanticChild"
+
+
+class PatchResolvedPydanticChild(BaseModel):
+    id: int
+
+
+def test_patch_resolved_pydantic_forward_refs_are_supported():
+    patch_model = Patch[PatchResolvedPydanticParent](
+        pick={"id", "child"},
+        partial={"child"},
+    )
+
+    assert "child" in patch_model.model_fields
 
 
 def teardown_module() -> None:

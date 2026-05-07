@@ -1,4 +1,5 @@
-"""Resolved forward-reference SQLModel example app."""
+"""Broken forward-reference SQLModel example app."""
+from pathlib import Path
 
 import os
 from contextlib import asynccontextmanager
@@ -8,14 +9,10 @@ from fastapi import Depends as FDepends
 from fastapi import FastAPI, HTTPException
 from sqlalchemy.orm import Session
 
-import ab_core.pydantic_patch.examples.sql_model_examples.models.project as project_module
-import ab_core.pydantic_patch.examples.sql_model_examples.models.project_milestone as milestone_module
-import ab_core.pydantic_patch.examples.sql_model_examples.models.project_task as task_module
-import ab_core.pydantic_patch.examples.sql_model_examples.models.task_comment as comment_module
 from ab_core.database.databases import Database
 from ab_core.database.session_context import db_session_sync
 from ab_core.dependency import Depends, inject
-from ab_core.pydantic_patch.examples.sql_model_examples.models import (
+from ab_core.pydantic_patch.examples.sqlmodel_examples.models import (
     Project,
     ProjectMilestone,
     ProjectTask,
@@ -25,47 +22,24 @@ from ab_core.pydantic_patch.orm_patch import recursive_patch_orm_scalar
 from ab_core.pydantic_patch.patch import Patch, PatchConfig
 
 os.environ.setdefault("DATABASE_TYPE", "SQL_ALCHEMY")
-os.environ.setdefault("DATABASE_SQL_ALCHEMY_URL", "sqlite:///./project_forward_refs_resolved.db")
+os.environ.setdefault("DATABASE_SQL_ALCHEMY_URL", "sqlite:///./project_forward_refs_broken.db")
 
 ENTITY_ID = 1
 
-
-# =========================
-# RESOLVE FORWARD REFERENCES
-# =========================
-
-project_module.ProjectMilestone = ProjectMilestone  # ty:ignore[unresolved-attribute]
-milestone_module.Project = Project  # ty:ignore[unresolved-attribute]
-milestone_module.ProjectTask = ProjectTask  # ty:ignore[unresolved-attribute]
-task_module.ProjectMilestone = ProjectMilestone  # ty:ignore[unresolved-attribute]
-task_module.TaskComment = TaskComment  # ty:ignore[unresolved-attribute]
-comment_module.ProjectTask = ProjectTask  # ty:ignore[unresolved-attribute]
-
-for model in (TaskComment, ProjectTask, ProjectMilestone, Project):
-    model.model_rebuild(force=True)
-
 ProjectPatch = Patch[Project](
-    pick={"id", "name", "milestones"},
-    required={"id"},
+    pick={"name", "milestones"},
     child_models={
         ProjectMilestone: PatchConfig(
             pick={"id", "name", "tasks"},
-            required={"id"},
         ),
         ProjectTask: PatchConfig(
             pick={"id", "title", "comments"},
-            required={"id"},
         ),
         TaskComment: PatchConfig(
             pick={"id", "body"},
-            required={"id"},
         ),
     },
 )
-
-# =========================
-# STARTUP / SEED
-# =========================
 
 
 def seed(db: Database) -> None:
@@ -144,17 +118,34 @@ def patch_project(
     recursive_patch_orm_scalar(project, patch)
 
     db_session.add(project)
-    db_session.commit()
-    db_session.refresh(project)
 
     return project
 
+
+def get_module_path(file_path: str) -> str:
+    parts = (
+        Path(file_path)
+        .resolve()
+        .with_suffix("")
+        .relative_to(Path.cwd())
+        .parts
+    )
+
+    if parts[0] == "src":
+        parts = parts[1:]
+
+    return ".".join(parts)
+
+
+# =========================
+# RUN
+# =========================
 
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "examples.project_forward_refs.app_resolved:app",
+        f"{get_module_path(__file__)}:app",
         host="0.0.0.0",
         port=8000,
         reload=False,

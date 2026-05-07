@@ -15,7 +15,7 @@ class ForwardRefSQLModel(SQLModel, registry=mapper_registry):
 
 class OmitForwardPydanticParent(BaseModel):
     id: int
-    child: "OmitForwardPydanticChild"
+    child: "OmitForwardPydanticChildMissing"
 
 
 class OmitForwardPydanticChild(BaseModel):
@@ -29,7 +29,7 @@ class OmitForwardSqlChild(ForwardRefSQLModel, table=True):
     parent_id: int | None = Field(default=None, foreign_key="omit_forward_sql_parent.id")
     name: str
 
-    parent: "OmitForwardSqlParent | None" = Relationship(back_populates="children")
+    parent: "OmitForwardSqlParentMissing | None" = Relationship(back_populates="children")
 
 
 class OmitForwardSqlParent(ForwardRefSQLModel, table=True):
@@ -48,7 +48,7 @@ class OmitForwardSqlParent(ForwardRefSQLModel, table=True):
         lambda: Omit[OmitForwardPydanticParent](fields={"id"}),
     ],
 )
-def test_omit_pydantic_forward_refs_raise_custom_error(operation):
+def test_unresolved_pydantic_forward_refs_raise_custom_error(operation):
     with pytest.raises(ForwardReferencesNotSupported):
         operation()
 
@@ -60,9 +60,10 @@ def test_omit_pydantic_forward_refs_raise_custom_error(operation):
         lambda: Omit[OmitForwardSqlParent](fields={"name"}),
     ],
 )
-def test_omit_sqlmodel_relationship_forward_refs_raise_custom_error(operation):
-    with pytest.raises(ForwardReferencesNotSupported):
-        operation()
+def test_resolved_sqlmodel_relationship_forward_refs_are_supported(operation):
+    model = operation()
+
+    assert "name" not in model.model_fields
 
 
 def teardown_module() -> None:

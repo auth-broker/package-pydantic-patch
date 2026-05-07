@@ -15,7 +15,7 @@ class ForwardRefSQLModel(SQLModel, registry=mapper_registry):
 
 class PickForwardPydanticParent(BaseModel):
     id: int
-    child: "PickForwardPydanticChild"
+    child: "PickForwardPydanticChildMissing"
 
 
 class PickForwardPydanticChild(BaseModel):
@@ -29,7 +29,7 @@ class PickForwardSqlChild(ForwardRefSQLModel, table=True):
     parent_id: int | None = Field(default=None, foreign_key="pick_forward_sql_parent.id")
     name: str
 
-    parent: "PickForwardSqlParent | None" = Relationship(back_populates="children")
+    parent: "PickForwardSqlParentMissing | None" = Relationship(back_populates="children")
 
 
 class PickForwardSqlParent(ForwardRefSQLModel, table=True):
@@ -48,7 +48,7 @@ class PickForwardSqlParent(ForwardRefSQLModel, table=True):
         lambda: Pick[PickForwardPydanticParent](fields={"id", "child"}),
     ],
 )
-def test_pick_pydantic_forward_refs_raise_custom_error(operation):
+def test_unresolved_pydantic_forward_refs_raise_custom_error(operation):
     with pytest.raises(ForwardReferencesNotSupported):
         operation()
 
@@ -60,9 +60,10 @@ def test_pick_pydantic_forward_refs_raise_custom_error(operation):
         lambda: Pick[PickForwardSqlParent](fields={"id", "children"}),
     ],
 )
-def test_pick_sqlmodel_relationship_forward_refs_raise_custom_error(operation):
-    with pytest.raises(ForwardReferencesNotSupported):
-        operation()
+def test_resolved_sqlmodel_relationship_forward_refs_are_supported(operation):
+    model = operation()
+
+    assert "children" in model.model_fields
 
 
 def teardown_module() -> None:

@@ -15,7 +15,7 @@ class ForwardRefSQLModel(SQLModel, registry=mapper_registry):
 
 class RequiredForwardPydanticParent(BaseModel):
     id: int
-    child: "RequiredForwardPydanticChild"
+    child: "RequiredForwardPydanticChildMissing"
 
 
 class RequiredForwardPydanticChild(BaseModel):
@@ -29,7 +29,7 @@ class RequiredForwardSqlChild(ForwardRefSQLModel, table=True):
     parent_id: int | None = Field(default=None, foreign_key="required_forward_sql_parent.id")
     name: str
 
-    parent: "RequiredForwardSqlParent | None" = Relationship(back_populates="children")
+    parent: "RequiredForwardSqlParentMissing | None" = Relationship(back_populates="children")
 
 
 class RequiredForwardSqlParent(ForwardRefSQLModel, table=True):
@@ -48,7 +48,7 @@ class RequiredForwardSqlParent(ForwardRefSQLModel, table=True):
         lambda: Required[RequiredForwardPydanticParent](fields={"child"}),
     ],
 )
-def test_required_pydantic_forward_refs_raise_custom_error(operation):
+def test_unresolved_pydantic_forward_refs_raise_custom_error(operation):
     with pytest.raises(ForwardReferencesNotSupported):
         operation()
 
@@ -60,9 +60,10 @@ def test_required_pydantic_forward_refs_raise_custom_error(operation):
         lambda: Required[RequiredForwardSqlParent](fields={"children"}),
     ],
 )
-def test_required_sqlmodel_relationship_forward_refs_raise_custom_error(operation):
-    with pytest.raises(ForwardReferencesNotSupported):
-        operation()
+def test_resolved_sqlmodel_relationship_forward_refs_are_supported(operation):
+    model = operation()
+
+    assert "children" in model.model_fields
 
 
 def teardown_module() -> None:

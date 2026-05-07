@@ -15,7 +15,7 @@ class ForwardRefSQLModel(SQLModel, registry=mapper_registry):
 
 class PartialForwardPydanticParent(BaseModel):
     id: int
-    child: "PartialForwardPydanticChild"
+    child: "PartialForwardPydanticChildMissing"
 
 
 class PartialForwardPydanticChild(BaseModel):
@@ -29,7 +29,7 @@ class PartialForwardSqlChild(ForwardRefSQLModel, table=True):
     parent_id: int | None = Field(default=None, foreign_key="partial_forward_sql_parent.id")
     name: str
 
-    parent: "PartialForwardSqlParent | None" = Relationship(back_populates="children")
+    parent: "PartialForwardSqlParentMissing | None" = Relationship(back_populates="children")
 
 
 class PartialForwardSqlParent(ForwardRefSQLModel, table=True):
@@ -48,7 +48,7 @@ class PartialForwardSqlParent(ForwardRefSQLModel, table=True):
         lambda: Partial[PartialForwardPydanticParent](fields={"child"}),
     ],
 )
-def test_partial_pydantic_forward_refs_raise_custom_error(operation):
+def test_unresolved_pydantic_forward_refs_raise_custom_error(operation):
     with pytest.raises(ForwardReferencesNotSupported):
         operation()
 
@@ -60,9 +60,10 @@ def test_partial_pydantic_forward_refs_raise_custom_error(operation):
         lambda: Partial[PartialForwardSqlParent](fields={"children"}),
     ],
 )
-def test_partial_sqlmodel_relationship_forward_refs_raise_custom_error(operation):
-    with pytest.raises(ForwardReferencesNotSupported):
-        operation()
+def test_resolved_sqlmodel_relationship_forward_refs_are_supported(operation):
+    model = operation()
+
+    assert "children" in model.model_fields
 
 
 def teardown_module() -> None:

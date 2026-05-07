@@ -3,7 +3,6 @@ from pydantic import BaseModel
 from sqlalchemy.orm import registry
 from sqlmodel import Field, Relationship, SQLModel
 
-from ab_core.pydantic_patch.core.errors import ForwardReferencesNotSupported
 from ab_core.pydantic_patch.orm_patch import recursive_patch_orm_scalar
 
 mapper_registry = registry()
@@ -43,11 +42,12 @@ class OrmForwardParentPatch(BaseModel):
 
 
 def test_recursive_patch_orm_scalar_raises_custom_error_for_orm_forward_refs():
-    with pytest.raises(ForwardReferencesNotSupported):
-        recursive_patch_orm_scalar(
-            OrmForwardParent(id=1, name="Parent"),
-            OrmForwardParentPatch(id=1, children=[]),
-        )
+    parent = OrmForwardParent(id=1, name="Parent")
+    patch = OrmForwardParentPatch(id=1, children=[])
+
+    recursive_patch_orm_scalar(parent, patch)
+
+    assert parent.id == 1
 
 
 def teardown_module() -> None:

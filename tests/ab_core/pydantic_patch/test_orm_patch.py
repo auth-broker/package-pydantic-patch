@@ -1,27 +1,14 @@
-from __future__ import annotations
-
 import pytest
 from pydantic import BaseModel
 from sqlmodel import Field, Relationship, SQLModel
 
-from ab_core.pydantic_patch.sqlmodel_patch import recursive_patch_orm_scalar
+from ab_core.pydantic_patch.orm_patch import recursive_patch_orm_scalar
 
 
 class Profile(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     bio: str | None = None
     user_id: int | None = Field(default=None, foreign_key="user.id")
-
-    user: User | None = Relationship(back_populates="profile")
-
-
-class User(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    name: str | None = None
-    email: str | None = None
-
-    profile: Profile | None = Relationship(back_populates="user")
-    pets: list[Pet] = Relationship(back_populates="owner")
 
 
 class Pet(SQLModel, table=True):
@@ -30,7 +17,16 @@ class Pet(SQLModel, table=True):
     species: str | None = None
     owner_id: int | None = Field(default=None, foreign_key="user.id")
 
-    owner: User | None = Relationship(back_populates="pets")
+
+class User(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str | None = None
+    email: str | None = None
+
+    profile: Profile | None = Relationship(
+        sa_relationship_kwargs={"uselist": False}
+    )
+    pets: list[Pet] = Relationship()
 
 
 class ProfilePatch(BaseModel):

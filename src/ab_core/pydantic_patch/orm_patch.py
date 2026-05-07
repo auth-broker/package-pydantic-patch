@@ -1,26 +1,47 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
-from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.orm import RelationshipProperty
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import RelationshipProperty
+else:
+    RelationshipProperty = object
+
+try:
+    from sqlalchemy import inspect as sa_inspect
+except ImportError:  # pragma: no cover
+    sa_inspect = None  # ty:ignore[invalid-assignment]
 
 
-def _provided_values(model: BaseModel) -> dict[str, Any]:
+def _provided_values(model: BaseModel) -> dict[str, object]:
     return {name: getattr(model, name) for name in model.model_fields_set}
 
 
 def _primary_key_names(model_cls: type[Any]) -> set[str]:
+    if sa_inspect is None:
+        raise RuntimeError(
+            'SQLAlchemy support is not installed. Install it with: pip install "pydantic-patch[orm]"'
+        )
+
     mapper = sa_inspect(model_cls).mapper
     return {column.key for column in mapper.primary_key}
 
 
 def _relationship_map(model_cls: type[Any]) -> dict[str, RelationshipProperty]:
+    if sa_inspect is None:
+        raise RuntimeError(
+            'SQLAlchemy support is not installed. Install it with: pip install "pydantic-patch[orm]"'
+        )
+
     mapper = sa_inspect(model_cls).mapper
     return {relationship.key: relationship for relationship in mapper.relationships}
 
 
-def _identity_tuple(instance_or_patch: Any, pk_names: set[str]) -> tuple[Any, ...] | None:
-    values: list[Any] = []
+def _identity_tuple(
+    instance_or_patch: Any,
+    pk_names: set[str],
+) -> tuple[object, ...] | None:
+    values: list[object] = []
 
     for name in pk_names:
         value = getattr(instance_or_patch, name, None)
@@ -36,17 +57,6 @@ def recursive_patch_orm_scalar(
     values: BaseModel,
 ) -> None:
     """Recursively apply a Pydantic patch model onto a SQLAlchemy/SQLModel ORM graph.
-
-    Supports:
-    - SQLModel mapped models
-    - standard SQLAlchemy declarative models
-    - scalar field updates
-    - one-to-one / many-to-one relationship updates
-    - one-to-many relationship updates by primary key
-    - creating child objects when no child primary key is provided
-
-    Primary keys in the patch payload are used only for matching existing ORM
-    instances and are never updated onto the ORM object.
     """
     orm_cls = type(orm_instance)
 

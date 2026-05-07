@@ -29,6 +29,7 @@ def apply_orm_relationship_type_hints(
     type_hints: dict[str, Any],
     payload: CreateModelPayload,
 ) -> None:
+    """Insert SQLModel relationship fields into the payload when they are omitted."""
     # we don't create a strict dependenct on sqlmodel, since we can extract relationship via the annotation
     relationship_names = getattr(model, "__sqlmodel_relationships__", {})
 

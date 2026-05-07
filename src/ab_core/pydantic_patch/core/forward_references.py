@@ -1,3 +1,5 @@
+"""Helpers for detecting and reporting unresolved forward references."""
+
 import sys
 from textwrap import dedent
 from typing import ForwardRef, get_args
@@ -6,6 +8,7 @@ from pydantic import BaseModel
 
 
 def contains_forward_ref(annotation: object) -> bool:
+    """Return whether an annotation contains any string or ``ForwardRef`` node."""
     if isinstance(annotation, str | ForwardRef):
         return True
 
@@ -13,6 +16,7 @@ def contains_forward_ref(annotation: object) -> bool:
 
 
 def unresolved_annotation_names(model: type[BaseModel]) -> list[str]:
+    """List annotation names on ``model`` that still contain forward references."""
     return [
         field_name
         for field_name, annotation in getattr(model, "__annotations__", {}).items()
@@ -25,6 +29,7 @@ def build_forward_ref_error_message(
     model: type[BaseModel],
     unresolved_fields: list[str],
 ) -> str:
+    """Build a detailed error message for unresolved SQLModel relationship hints."""
     module_name = model.__module__
     module = sys.modules.get(module_name)
 

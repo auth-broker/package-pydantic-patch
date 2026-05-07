@@ -1,3 +1,5 @@
+"""Type-hint resolution helpers for patch model generation."""
+
 from typing import get_type_hints
 
 from pydantic import BaseModel
@@ -7,6 +9,7 @@ from .forward_references import build_forward_ref_error_message, unresolved_anno
 
 
 def get_resolved_type_hints(model: type[BaseModel]) -> dict[str, object]:
+    """Resolve model type hints and raise a custom error on forward references."""
     unresolved = unresolved_annotation_names(model)
 
     if unresolved:

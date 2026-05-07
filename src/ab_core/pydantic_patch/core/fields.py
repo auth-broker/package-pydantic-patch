@@ -10,7 +10,7 @@ from ab_core.pydantic_patch.core.errors import (
     ConflictingPatchConfigError,
     InvalidPatchFieldError,
 )
-from ab_core.pydantic_patch.core.payload import CreateModelField, CreateModelPayload
+from ab_core.pydantic_patch.core.payload_types import CreateModelField, CreateModelPayload
 from ab_core.pydantic_patch.core.types import Any
 
 

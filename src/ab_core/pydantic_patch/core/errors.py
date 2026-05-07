@@ -19,3 +19,7 @@ class UnsupportedAnnotationError(PydanticPatchError):
 
 class ConflictingPatchConfigError(PydanticPatchError):
     """Raised when operation configuration conflicts with the generated payload."""
+
+
+class ForwardReferencesNotSupported(PydanticPatchError):
+    """Raised when models use unresolved forward references."""

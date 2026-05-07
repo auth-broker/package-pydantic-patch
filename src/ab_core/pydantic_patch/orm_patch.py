@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
+from ab_core.pydantic_patch.core.type_hints import assert_no_forward_refs
+
 if TYPE_CHECKING:
     from sqlalchemy.orm import RelationshipProperty
 else:
@@ -56,6 +58,8 @@ def recursive_patch_orm_scalar(
 ) -> None:
     """Recursively apply a Pydantic patch model onto a SQLAlchemy/SQLModel ORM graph."""
     orm_cls = type(orm_instance)
+    assert_no_forward_refs(orm_cls)
+    assert_no_forward_refs(type(values))
 
     pk_names = _primary_key_names(orm_cls)
     relationships = _relationship_map(orm_cls)

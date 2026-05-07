@@ -28,7 +28,7 @@ description = "Python Pydantic support of TypeScript-style utility types, includ
 name = "ab-pydantic-patch"
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
-version = "1.1.0"
+version = "1.2.0"
 
 [project.optional-dependencies]
 orm = [
@@ -76,5 +76,5 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["D100", "D101", "D103"]
-"examples/**/*.py" = ["D100", "D101", "D103"]
+"tests/**/*.py" = ["D100", "D101", "D103", "F821"]
+"src/ab_core/pydantic_patch/examples/**/*.py" = ["D100", "D101", "D103", "F821"]

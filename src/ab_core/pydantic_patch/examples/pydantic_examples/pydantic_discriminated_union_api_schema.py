@@ -1,10 +1,11 @@
-from collections.abc import Mapping
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Discriminator
 
+from ab_core.pydantic_patch.orm_patch import recursive_patch_orm_scalar
 from ab_core.pydantic_patch.patch import Patch, PatchConfig
 
 ENTITY_ID = 0
@@ -47,11 +48,11 @@ HouseholdPatch = Patch[Household](
     child_models={
         Cat: PatchConfig(
             pick={"kind", "id", "name"},  # cannot edit lives
-            required={"kind", "id"},
+            required={"kind"},
         ),
         Dog: PatchConfig(
             pick={"kind", "id", "name"},  # cannot edit bark_volume
-            required={"kind", "id"},
+            required={"kind"},
         ),
     },
 )
@@ -88,38 +89,6 @@ app = FastAPI(lifespan=lifespan)
 
 
 # =========================
-# UPDATE HELPERS
-# =========================
-
-
-def apply_scalar_patch(instance: BaseModel, data: Mapping[str, object]) -> None:
-    for field_name, value in data.items():
-        if field_name in {"id", "kind"}:
-            continue
-
-        setattr(instance, field_name, value)
-
-
-def apply_pet_patch(household: Household, pet_data: Mapping[str, object]) -> None:
-    pet_id = pet_data["id"]
-    pet_kind = pet_data["kind"]
-
-    pet = next(
-        (
-            existing_pet
-            for existing_pet in household.pets
-            if existing_pet.id == pet_id and existing_pet.kind == pet_kind
-        ),
-        None,
-    )
-
-    if pet is None:
-        raise HTTPException(status_code=404, detail=f"{pet_kind.title()} not found")
-
-    apply_scalar_patch(pet, pet_data)
-
-
-# =========================
 # API
 # =========================
 
@@ -141,13 +110,7 @@ def patch_household(
     if household is None:
         raise HTTPException(status_code=404, detail="Household not found")
 
-    data = patch.model_dump(exclude_unset=True)
-
-    household_data = {key: value for key, value in data.items() if key != "pets"}
-    apply_scalar_patch(household, household_data)
-
-    for pet_data in data.get("pets", []):
-        apply_pet_patch(household, pet_data)
+    recursive_patch_orm_scalar(household, patch)
 
     return household
 
@@ -156,12 +119,22 @@ def patch_household(
 # RUN
 # =========================
 
+
+def get_module_path(file_path: str) -> str:
+    parts = Path(file_path).resolve().with_suffix("").relative_to(Path.cwd()).parts
+
+    if parts[0] == "src":
+        parts = parts[1:]
+
+    return ".".join(parts)
+
+
 if __name__ == "__main__":
     import uvicorn
 
     # http://localhost:8000/docs#/default/patch_household_households__household_id__patch
     uvicorn.run(
-        app,
+        f"{get_module_path(__file__)}:app",
         host="0.0.0.0",
         port=8000,
         reload=False,

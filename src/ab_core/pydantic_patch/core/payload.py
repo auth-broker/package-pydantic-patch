@@ -28,7 +28,7 @@ def build_payload_from_model(model: type[BaseModel]) -> CreateModelPayload:
         annotation = type_hints.get(field_name, field_info.annotation)
         discriminator_metadata = _extract_discriminator_metadata(field_info)
 
-        if discriminator_metadata:
+        if discriminator_metadata and get_origin(annotation) is not Annotated:
             annotation = Annotated[annotation, *discriminator_metadata]
 
         field_copy = clone_field_info(field_info)

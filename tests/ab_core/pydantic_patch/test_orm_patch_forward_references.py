@@ -14,24 +14,14 @@ class ForwardRefSQLModel(SQLModel, registry=mapper_registry):
     __abstract__ = True
 
 
-class OrmForwardChildPatch(BaseModel):
-    id: int
-    parent: "OrmForwardParentPatch | None" = None
-
-
-class OrmForwardParentPatch(BaseModel):
-    id: int
-    children: list[OrmForwardChildPatch] = []
-
-
 class OrmForwardChild(ForwardRefSQLModel, table=True):
     __tablename__ = "orm_forward_child"
 
     id: int | None = Field(default=None, primary_key=True)
-    parent_id: int | None = Field(default=None, foreign_key="orm_forward_parent.id")
     name: str
 
-    parent: "OrmForwardParent | None" = Relationship(back_populates="children")
+    parent_id: int | None = Field(default=None, foreign_key="orm_forward_parent.id")
+    parent: "OrmForwardParent" = Relationship(back_populates="children")
 
 
 class OrmForwardParent(ForwardRefSQLModel, table=True):
@@ -41,6 +31,16 @@ class OrmForwardParent(ForwardRefSQLModel, table=True):
     name: str
 
     children: list[OrmForwardChild] = Relationship(back_populates="parent")
+
+
+class OrmForwardChildPatch(BaseModel):
+    id: int
+    parent: "OrmForwardParentPatch | None" = None
+
+
+class OrmForwardParentPatch(BaseModel):
+    id: int
+    children: list[OrmForwardChildPatch] = []
 
 
 def test_recursive_patch_orm_scalar_raises_custom_error_for_orm_forward_refs():

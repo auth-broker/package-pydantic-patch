@@ -13,6 +13,7 @@ from ab_core.pydantic_patch.core.payload import (
     build_payload_from_model,
     create_model_from_payload,
 )
+from ab_core.pydantic_patch.core.type_hints import assert_no_forward_refs
 
 
 class TransformConfig(Protocol):
@@ -91,6 +92,8 @@ def build_transformed_model(
     use_cache: bool,
 ) -> type[BaseModel]:
     """Build a transformed model and recursively transform nested annotations."""
+    assert_no_forward_refs(source_model)
+
     payload = build_payload_from_model(source_model)
     payload = mutate_payload(payload, source_model, config)
 

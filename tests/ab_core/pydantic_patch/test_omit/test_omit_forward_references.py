@@ -1,9 +1,17 @@
 import pytest
 from pydantic import BaseModel
+from sqlalchemy.orm import registry
 from sqlmodel import Field, Relationship, SQLModel
 
 from ab_core.pydantic_patch.core.errors import ForwardReferencesNotSupported
 from ab_core.pydantic_patch.omit import Omit, create_omit_model
+
+
+mapper_registry = registry()
+
+
+class ForwardRefSQLModel(SQLModel, registry=mapper_registry):
+    __abstract__ = True
 
 
 class OmitForwardPydanticParent(BaseModel):
@@ -15,7 +23,7 @@ class OmitForwardPydanticChild(BaseModel):
     id: int
 
 
-class OmitForwardSqlChild(SQLModel, table=True):
+class OmitForwardSqlChild(ForwardRefSQLModel, table=True):
     __tablename__ = "omit_forward_sql_child"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -25,7 +33,7 @@ class OmitForwardSqlChild(SQLModel, table=True):
     parent: "OmitForwardSqlParent | None" = Relationship(back_populates="children")
 
 
-class OmitForwardSqlParent(SQLModel, table=True):
+class OmitForwardSqlParent(ForwardRefSQLModel, table=True):
     __tablename__ = "omit_forward_sql_parent"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -56,3 +64,8 @@ def test_omit_pydantic_forward_refs_raise_custom_error(operation):
 def test_omit_sqlmodel_relationship_forward_refs_raise_custom_error(operation):
     with pytest.raises(ForwardReferencesNotSupported):
         operation()
+
+
+def teardown_module() -> None:
+    mapper_registry.dispose(cascade=True)
+    mapper_registry.metadata.clear()

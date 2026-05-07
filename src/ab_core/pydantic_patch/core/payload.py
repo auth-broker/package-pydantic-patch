@@ -10,21 +10,6 @@ from .payload_types import CreateModelPayload
 from .type_hints import get_resolved_type_hints
 
 
-def unwrap_sqlalchemy_mapped(annotation: object) -> object:
-    """Unwrap SQLAlchemy Mapped[T] annotations to T when present."""
-    origin = get_origin(annotation)
-
-    if origin is None:
-        return annotation
-
-    if getattr(origin, "__name__", None) == "Mapped":
-        mapped_args = get_args(annotation)
-        if len(mapped_args) == 1:
-            return mapped_args[0]
-
-    return annotation
-
-
 def clone_field_info(field_info: FieldInfo) -> FieldInfo:
     """Return a shallow copy of FieldInfo suitable for mutation."""
     return field_info._copy()  # pyright: ignore[reportPrivateUsage]

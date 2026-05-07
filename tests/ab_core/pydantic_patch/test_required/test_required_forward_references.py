@@ -1,9 +1,17 @@
 import pytest
 from pydantic import BaseModel
+from sqlalchemy.orm import registry
 from sqlmodel import Field, Relationship, SQLModel
 
 from ab_core.pydantic_patch.core.errors import ForwardReferencesNotSupported
 from ab_core.pydantic_patch.required import Required, create_required_model
+
+
+mapper_registry = registry()
+
+
+class ForwardRefSQLModel(SQLModel, registry=mapper_registry):
+    __abstract__ = True
 
 
 class RequiredForwardPydanticParent(BaseModel):
@@ -15,7 +23,7 @@ class RequiredForwardPydanticChild(BaseModel):
     id: int
 
 
-class RequiredForwardSqlChild(SQLModel, table=True):
+class RequiredForwardSqlChild(ForwardRefSQLModel, table=True):
     __tablename__ = "required_forward_sql_child"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -25,7 +33,7 @@ class RequiredForwardSqlChild(SQLModel, table=True):
     parent: "RequiredForwardSqlParent | None" = Relationship(back_populates="children")
 
 
-class RequiredForwardSqlParent(SQLModel, table=True):
+class RequiredForwardSqlParent(ForwardRefSQLModel, table=True):
     __tablename__ = "required_forward_sql_parent"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -56,3 +64,8 @@ def test_required_pydantic_forward_refs_raise_custom_error(operation):
 def test_required_sqlmodel_relationship_forward_refs_raise_custom_error(operation):
     with pytest.raises(ForwardReferencesNotSupported):
         operation()
+
+
+def teardown_module() -> None:
+    mapper_registry.dispose(cascade=True)
+    mapper_registry.metadata.clear()

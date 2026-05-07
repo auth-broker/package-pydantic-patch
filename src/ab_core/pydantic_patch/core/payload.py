@@ -5,7 +5,7 @@ from typing import Annotated, get_origin
 from pydantic import BaseModel, Discriminator, create_model
 from pydantic.fields import FieldInfo, PydanticUndefined
 
-from .orm_type_hints import apply_orm_relationship_type_hints
+from .orm_type_hints import apply_orm_relationship_fields
 from .payload_types import CreateModelPayload
 from .type_hints import get_resolved_type_hints
 
@@ -37,7 +37,7 @@ def build_payload_from_model(model: type[BaseModel]) -> CreateModelPayload:
 
         payload[field_name] = (annotation, field_copy)
 
-    apply_orm_relationship_type_hints(model, type_hints, payload)
+    apply_orm_relationship_fields(model, type_hints, payload)
 
     return payload
 

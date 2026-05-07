@@ -24,7 +24,7 @@ def unwrap_sqlalchemy_mapped(annotation: object) -> object:
     return annotation
 
 
-def apply_orm_relationship_type_hints(
+def apply_orm_relationship_fields(
     model: type[BaseModel],
     type_hints: dict[str, Any],
     payload: CreateModelPayload,

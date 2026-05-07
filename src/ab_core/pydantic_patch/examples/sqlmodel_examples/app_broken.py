@@ -1,8 +1,8 @@
 """Broken forward-reference SQLModel example app."""
-from pathlib import Path
 
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends as FDepends
@@ -123,13 +123,7 @@ def patch_project(
 
 
 def get_module_path(file_path: str) -> str:
-    parts = (
-        Path(file_path)
-        .resolve()
-        .with_suffix("")
-        .relative_to(Path.cwd())
-        .parts
-    )
+    parts = Path(file_path).resolve().with_suffix("").relative_to(Path.cwd()).parts
 
     if parts[0] == "src":
         parts = parts[1:]

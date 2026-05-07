@@ -1,5 +1,5 @@
-from pathlib import Path
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException
@@ -119,14 +119,9 @@ def patch_household(
 # RUN
 # =========================
 
+
 def get_module_path(file_path: str) -> str:
-    parts = (
-        Path(file_path)
-        .resolve()
-        .with_suffix("")
-        .relative_to(Path.cwd())
-        .parts
-    )
+    parts = Path(file_path).resolve().with_suffix("").relative_to(Path.cwd()).parts
 
     if parts[0] == "src":
         parts = parts[1:]

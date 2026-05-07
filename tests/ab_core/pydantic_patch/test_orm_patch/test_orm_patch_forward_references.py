@@ -1,4 +1,3 @@
-import pytest
 from pydantic import BaseModel
 from sqlalchemy.orm import registry
 from sqlmodel import Field, Relationship, SQLModel

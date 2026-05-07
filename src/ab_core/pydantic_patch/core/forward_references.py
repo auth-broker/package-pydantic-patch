@@ -29,7 +29,7 @@ def build_forward_ref_error_message(
     model: type[BaseModel],
     unresolved_fields: list[str],
 ) -> str:
-    """Build a detailed error message for unresolved SQLModel relationship hints."""
+    """Build a detailed error message for unresolved forward-reference hints."""
     module_name = model.__module__
     module = sys.modules.get(module_name)
 
@@ -47,7 +47,7 @@ def build_forward_ref_error_message(
 
     return dedent(
         f"""
-        SQLModel relationship forward references are not supported by pydantic-patch.
+        Forward references are not supported by pydantic-patch until they are resolved.
 
         pydantic-patch is type-driven and needs real Python types when generating
         Pick/Omit/Partial/Required/Patch models. The model {model.__name__!r} still
@@ -68,8 +68,11 @@ def build_forward_ref_error_message(
             for model in ({model_names}):
                 model.model_rebuild(force=True)
 
-        In a package with circular SQLModel relationships, this usually belongs in
-        the package __init__.py or another central models module that imports all
-        ORM model modules first.
+            For SQLModel relationships, this often means binding shallow imports at
+            module level before calling model_rebuild(force=True).
+
+            In a package with circular SQLModel relationships, this usually belongs
+            in the package __init__.py or another central models module that imports
+            all ORM model modules first.
         """
     ).strip()

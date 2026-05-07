@@ -1,12 +1,13 @@
 """Pydantic create_model payload helpers."""
 
-from typing import Annotated, get_args, get_origin, get_type_hints
+from typing import Annotated, get_args, get_origin
 
 from pydantic import BaseModel, Discriminator, create_model
 from pydantic.fields import FieldInfo, PydanticUndefined
 
 from .orm_type_hints import apply_orm_relationship_type_hints
 from .payload_types import CreateModelPayload
+from .type_hints import get_resolved_type_hints
 
 
 def unwrap_sqlalchemy_mapped(annotation: object) -> object:
@@ -36,9 +37,10 @@ def _extract_discriminator_metadata(field_info: FieldInfo) -> tuple[Discriminato
 def build_payload_from_model(model: type[BaseModel]) -> CreateModelPayload:
     """Build a create_model payload from model fields and relationships."""
     payload: CreateModelPayload = {}
+    type_hints = get_resolved_type_hints(model)
 
     for field_name, field_info in model.model_fields.items():
-        annotation = field_info.annotation
+        annotation = type_hints.get(field_name, field_info.annotation)
         discriminator_metadata = _extract_discriminator_metadata(field_info)
 
         if discriminator_metadata:
@@ -50,7 +52,6 @@ def build_payload_from_model(model: type[BaseModel]) -> CreateModelPayload:
 
         payload[field_name] = (annotation, field_copy)
 
-    type_hints = get_type_hints(model, include_extras=True)
     apply_orm_relationship_type_hints(model, type_hints, payload)
 
     return payload

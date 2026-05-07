@@ -6,7 +6,6 @@ from sqlmodel import Field, Relationship, SQLModel
 from ab_core.pydantic_patch.core.errors import ForwardReferencesNotSupported
 from ab_core.pydantic_patch.orm_patch import recursive_patch_orm_scalar
 
-
 mapper_registry = registry()
 
 

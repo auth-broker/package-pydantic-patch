@@ -73,6 +73,7 @@ def unresolved_annotation_names(model: type[BaseModel]) -> list[str]:
 
     return unresolved_fields
 
+
 def build_forward_ref_error_message(
     *,
     model: type[BaseModel],

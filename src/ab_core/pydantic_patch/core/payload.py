@@ -1,6 +1,6 @@
 """Pydantic create_model payload helpers."""
 
-from typing import Annotated, get_args, get_origin
+from typing import Annotated, get_origin
 
 from pydantic import BaseModel, Discriminator, create_model
 from pydantic.fields import FieldInfo, PydanticUndefined

@@ -2,15 +2,24 @@
 
 import sys
 from textwrap import dedent
-from typing import ForwardRef, get_args
+from typing import ForwardRef, get_args, Literal, get_origin
 
 from pydantic import BaseModel
 
 
 def contains_forward_ref(annotation: object) -> bool:
     """Return whether an annotation contains any string or ``ForwardRef`` node."""
-    if isinstance(annotation, str | ForwardRef):
+    if isinstance(annotation, ForwardRef):
         return True
+
+    if isinstance(annotation, str):
+        return True
+
+    origin = get_origin(annotation)
+
+    # Literal["foobar"] is NOT a forward reference
+    if origin is Literal:
+        return False
 
     return any(contains_forward_ref(arg) for arg in get_args(annotation))
 

@@ -15,6 +15,7 @@ RESOLVED_EXAMPLE_URL = (
 
 
 def contains_forward_ref(annotation: object) -> bool:
+    """Return whether an annotation still contains string or ForwardRef nodes."""
     if isinstance(annotation, str | ForwardRef):
         return True
 
@@ -52,6 +53,7 @@ def _iter_model_modules(root_model: type[BaseModel]) -> list[str]:
 
 
 def unresolved_annotation_names(model: type[BaseModel]) -> list[str]:
+    """Collect unresolved forward-reference annotation names for model modules."""
     unresolved: list[str] = []
 
     for module_name in _iter_model_modules(model):
@@ -136,6 +138,7 @@ def build_forward_ref_error_message(
     model: type[BaseModel],
     unresolved_fields: list[str],
 ) -> str:
+    """Build a guidance-rich error message for unresolved forward references."""
     resolution_example = indent(_build_resolution_example(model), "    ")
 
     return dedent(

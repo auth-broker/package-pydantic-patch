@@ -1,3 +1,5 @@
+"""PATCH support for SQLAlchemy/SQLModel ORM graphs."""
+
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
@@ -19,9 +21,7 @@ def _provided_values(model: BaseModel) -> dict[str, object]:
 
 def _primary_key_names(model_cls: type[Any]) -> set[str]:
     if sa_inspect is None:
-        raise RuntimeError(
-            'SQLAlchemy support is not installed. Install it with: pip install "pydantic-patch[orm]"'
-        )
+        raise RuntimeError('SQLAlchemy support is not installed. Install it with: pip install "pydantic-patch[orm]"')
 
     mapper = sa_inspect(model_cls).mapper
     return {column.key for column in mapper.primary_key}
@@ -29,9 +29,7 @@ def _primary_key_names(model_cls: type[Any]) -> set[str]:
 
 def _relationship_map(model_cls: type[Any]) -> dict[str, RelationshipProperty]:
     if sa_inspect is None:
-        raise RuntimeError(
-            'SQLAlchemy support is not installed. Install it with: pip install "pydantic-patch[orm]"'
-        )
+        raise RuntimeError('SQLAlchemy support is not installed. Install it with: pip install "pydantic-patch[orm]"')
 
     mapper = sa_inspect(model_cls).mapper
     return {relationship.key: relationship for relationship in mapper.relationships}
@@ -56,8 +54,7 @@ def recursive_patch_orm_scalar(
     orm_instance: Any,
     values: BaseModel,
 ) -> None:
-    """Recursively apply a Pydantic patch model onto a SQLAlchemy/SQLModel ORM graph.
-    """
+    """Recursively apply a Pydantic patch model onto a SQLAlchemy/SQLModel ORM graph."""
     orm_cls = type(orm_instance)
 
     pk_names = _primary_key_names(orm_cls)

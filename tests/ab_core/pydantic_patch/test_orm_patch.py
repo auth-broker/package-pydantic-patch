@@ -23,9 +23,7 @@ class User(SQLModel, table=True):
     name: str | None = None
     email: str | None = None
 
-    profile: Profile | None = Relationship(
-        sa_relationship_kwargs={"uselist": False}
-    )
+    profile: Profile | None = Relationship(sa_relationship_kwargs={"uselist": False})
     pets: list[Pet] = Relationship()
 
 

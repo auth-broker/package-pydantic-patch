@@ -1,3 +1,5 @@
+"""Broken forward-reference SQLModel example app."""
+
 import os
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -9,23 +11,42 @@ from sqlalchemy.orm import Session
 from ab_core.database.databases import Database
 from ab_core.database.session_context import db_session_sync
 from ab_core.dependency import Depends, inject
-from ab_core.pydantic_patch.orm_patch import recursive_patch_orm_scalar
-
 from ab_core.pydantic_patch.examples.sql_model_examples.models import (
     Project,
     ProjectMilestone,
     ProjectTask,
     TaskComment,
 )
-from ab_core.pydantic_patch.examples.sql_model_examples.schemas import ProjectPatch
+from ab_core.pydantic_patch.orm_patch import recursive_patch_orm_scalar
+from ab_core.pydantic_patch.patch import Patch, PatchConfig
 
 os.environ.setdefault("DATABASE_TYPE", "SQL_ALCHEMY")
 os.environ.setdefault("DATABASE_SQL_ALCHEMY_URL", "sqlite:///./project_forward_refs_broken.db")
 
 ENTITY_ID = 1
 
+ProjectPatch = Patch[Project](
+    pick={"id", "name", "milestones"},
+    required={"id"},
+    child_models={
+        ProjectMilestone: PatchConfig(
+            pick={"id", "name", "tasks"},
+            required={"id"},
+        ),
+        ProjectTask: PatchConfig(
+            pick={"id", "title", "comments"},
+            required={"id"},
+        ),
+        TaskComment: PatchConfig(
+            pick={"id", "body"},
+            required={"id"},
+        ),
+    },
+)
+
 
 def seed(db: Database) -> None:
+    """Create demo records if they do not already exist."""
     db.sync_upgrade_db()
 
     with db.sync_session() as session:
@@ -65,6 +86,7 @@ async def lifespan(
     _app: FastAPI,
     db: Annotated[Database, Depends(Database, persist=True)],
 ):
+    """Run startup seed for the example app lifecycle."""
     seed(db)
     yield
 
@@ -77,6 +99,7 @@ def get_project(
     project_id: int,
     db_session: Annotated[Session, FDepends(db_session_sync)],
 ) -> Project:
+    """Return a project by id."""
     project = db_session.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -90,6 +113,7 @@ def patch_project(
     patch: ProjectPatch,
     db_session: Annotated[Session, FDepends(db_session_sync)],
 ) -> Project:
+    """Apply a patch model to a project and persist changes."""
     project = db_session.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")

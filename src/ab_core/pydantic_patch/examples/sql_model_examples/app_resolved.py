@@ -1,3 +1,5 @@
+"""Resolved forward-reference SQLModel example app."""
+
 import os
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -6,22 +8,21 @@ from fastapi import Depends as FDepends
 from fastapi import FastAPI, HTTPException
 from sqlalchemy.orm import Session
 
-from ab_core.database.databases import Database
-from ab_core.database.session_context import db_session_sync
-from ab_core.dependency import Depends, inject
-from ab_core.pydantic_patch.orm_patch import recursive_patch_orm_scalar
-
 import ab_core.pydantic_patch.examples.sql_model_examples.models.project as project_module
 import ab_core.pydantic_patch.examples.sql_model_examples.models.project_milestone as milestone_module
 import ab_core.pydantic_patch.examples.sql_model_examples.models.project_task as task_module
 import ab_core.pydantic_patch.examples.sql_model_examples.models.task_comment as comment_module
-
+from ab_core.database.databases import Database
+from ab_core.database.session_context import db_session_sync
+from ab_core.dependency import Depends, inject
 from ab_core.pydantic_patch.examples.sql_model_examples.models import (
     Project,
     ProjectMilestone,
     ProjectTask,
     TaskComment,
 )
+from ab_core.pydantic_patch.orm_patch import recursive_patch_orm_scalar
+from ab_core.pydantic_patch.patch import Patch, PatchConfig
 
 os.environ.setdefault("DATABASE_TYPE", "SQL_ALCHEMY")
 os.environ.setdefault("DATABASE_SQL_ALCHEMY_URL", "sqlite:///./project_forward_refs_resolved.db")
@@ -33,20 +34,34 @@ ENTITY_ID = 1
 # RESOLVE FORWARD REFERENCES
 # =========================
 
-project_module.ProjectMilestone = ProjectMilestone
-milestone_module.Project = Project
-milestone_module.ProjectTask = ProjectTask
-task_module.ProjectMilestone = ProjectMilestone
-task_module.TaskComment = TaskComment
-comment_module.ProjectTask = ProjectTask
+project_module.ProjectMilestone = ProjectMilestone  # ty:ignore[unresolved-attribute]
+milestone_module.Project = Project  # ty:ignore[unresolved-attribute]
+milestone_module.ProjectTask = ProjectTask  # ty:ignore[unresolved-attribute]
+task_module.ProjectMilestone = ProjectMilestone  # ty:ignore[unresolved-attribute]
+task_module.TaskComment = TaskComment  # ty:ignore[unresolved-attribute]
+comment_module.ProjectTask = ProjectTask  # ty:ignore[unresolved-attribute]
 
 for model in (TaskComment, ProjectTask, ProjectMilestone, Project):
     model.model_rebuild(force=True)
 
-
-# Import only after forward references are resolved.
-from ab_core.pydantic_patch.examples.sql_model_examples.schemas import ProjectPatch  # noqa: E402
-
+ProjectPatch = Patch[Project](
+    pick={"id", "name", "milestones"},
+    required={"id"},
+    child_models={
+        ProjectMilestone: PatchConfig(
+            pick={"id", "name", "tasks"},
+            required={"id"},
+        ),
+        ProjectTask: PatchConfig(
+            pick={"id", "title", "comments"},
+            required={"id"},
+        ),
+        TaskComment: PatchConfig(
+            pick={"id", "body"},
+            required={"id"},
+        ),
+    },
+)
 
 # =========================
 # STARTUP / SEED
@@ -54,6 +69,7 @@ from ab_core.pydantic_patch.examples.sql_model_examples.schemas import ProjectPa
 
 
 def seed(db: Database) -> None:
+    """Create demo records if they do not already exist."""
     db.sync_upgrade_db()
 
     with db.sync_session() as session:
@@ -93,6 +109,7 @@ async def lifespan(
     _app: FastAPI,
     db: Annotated[Database, Depends(Database, persist=True)],
 ):
+    """Run startup seed for the example app lifecycle."""
     seed(db)
     yield
 
@@ -105,6 +122,7 @@ def get_project(
     project_id: int,
     db_session: Annotated[Session, FDepends(db_session_sync)],
 ) -> Project:
+    """Return a project by id."""
     project = db_session.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -118,6 +136,7 @@ def patch_project(
     patch: ProjectPatch,
     db_session: Annotated[Session, FDepends(db_session_sync)],
 ) -> Project:
+    """Apply a patch model to a project and persist changes."""
     project = db_session.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")

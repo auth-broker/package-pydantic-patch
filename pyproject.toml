@@ -36,10 +36,10 @@ orm = [
 ]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/ab_core", "examples"]
+include = ["src/ab_core"]
 
 [tool.hatch.build.targets.wheel]
-include = ["src/ab_core", "examples"]
+include = ["src/ab_core"]
 
 [tool.hatch.build.targets.wheel.sources]
 "src/ab_core" = "ab_core"
@@ -76,5 +76,5 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["D100", "D101", "D103"]
-"examples/**/*.py" = ["D100", "D101", "D103"]
+"tests/**/*.py" = ["D100", "D101", "D103", "F821"]
+"src/ab_core/pydantic_patch/examples/**/*.py" = ["D100", "D101", "D103", "F821"]

@@ -1,7 +1,11 @@
+"""Task comment SQLModel for the nested forward-reference example."""
+
 from sqlmodel import Field, Relationship, SQLModel
 
 
 class TaskComment(SQLModel, table=True):
+    """Comment child entity for a task."""
+
     __tablename__ = "task_comment"
 
     id: int | None = Field(default=None, primary_key=True)

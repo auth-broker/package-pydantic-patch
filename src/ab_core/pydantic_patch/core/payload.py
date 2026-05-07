@@ -2,13 +2,11 @@
 
 from typing import Annotated, get_args, get_origin, get_type_hints
 
-from pydantic import BaseModel, Discriminator, Field, create_model
+from pydantic import BaseModel, Discriminator, create_model
 from pydantic.fields import FieldInfo, PydanticUndefined
 
-from ab_core.pydantic_patch.core.types import Any
-
-type CreateModelField = tuple[Any, object]
-type CreateModelPayload = dict[str, CreateModelField]
+from .orm_type_hints import apply_orm_relationship_type_hints
+from .payload_types import CreateModelPayload
 
 
 def unwrap_sqlalchemy_mapped(annotation: object) -> object:
@@ -53,16 +51,7 @@ def build_payload_from_model(model: type[BaseModel]) -> CreateModelPayload:
         payload[field_name] = (annotation, field_copy)
 
     type_hints = get_type_hints(model, include_extras=True)
-    relationship_names = getattr(model, "__sqlmodel_relationships__", {})
-
-    for relationship_name in relationship_names:
-        if relationship_name in payload:
-            continue
-
-        payload[relationship_name] = (
-            unwrap_sqlalchemy_mapped(type_hints[relationship_name]),
-            Field(default=None),
-        )
+    apply_orm_relationship_type_hints(model, type_hints, payload)
 
     return payload
 

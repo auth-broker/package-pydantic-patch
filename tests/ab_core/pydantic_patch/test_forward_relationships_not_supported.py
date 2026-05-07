@@ -1,21 +1,12 @@
-from __future__ import annotations
-
 import pytest
 from sqlmodel import Field, Relationship, SQLModel
 
+from ab_core.pydantic_patch.core.errors import ForwardReferencesNotSupported
 from ab_core.pydantic_patch.omit import Omit, create_omit_model
 from ab_core.pydantic_patch.partial import Partial, create_partial_model
 from ab_core.pydantic_patch.patch import Patch, PatchConfig, create_patch_model
 from ab_core.pydantic_patch.pick import Pick, create_pick_model
 from ab_core.pydantic_patch.required import Required, create_required_model
-from ab_core.pydantic_patch.core.errors import ORMForwardReferencesNotSupported
-
-
-class Parent(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    name: str
-
-    children: list["Child"] = Relationship(back_populates="parent")
 
 
 class Child(SQLModel, table=True):
@@ -23,7 +14,14 @@ class Child(SQLModel, table=True):
     parent_id: int | None = Field(default=None, foreign_key="parent.id")
     name: str
 
-    parent: "Parent" | None = Relationship(back_populates="children")
+    parent: "Parent | None" = Relationship(back_populates="children")
+
+
+class Parent(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
+
+    children: list[Child] = Relationship(back_populates="parent")
 
 
 @pytest.mark.parametrize(
@@ -71,7 +69,7 @@ class Child(SQLModel, table=True):
 )
 def test_sqlmodel_relationship_forward_refs_raise_custom_error(operation_name, operation):
     with pytest.raises(
-        ORMForwardReferencesNotSupported,
+        ForwardReferencesNotSupported,
     ):
         operation()
 
@@ -97,6 +95,6 @@ def test_sqlmodel_relationship_forward_refs_raise_custom_error_for_generic_api(
     operation,
 ):
     with pytest.raises(
-        ORMForwardReferencesNotSupported,
+        ForwardReferencesNotSupported,
     ):
         operation()

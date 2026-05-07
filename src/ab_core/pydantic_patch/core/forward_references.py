@@ -1,77 +1,134 @@
 """Helpers for detecting and reporting unresolved forward references."""
 
 import sys
-from textwrap import dedent
+from textwrap import dedent, indent
 from typing import ForwardRef, Literal, get_args, get_origin
 
 from pydantic import BaseModel
 
+RESOLVED_EXAMPLE_URL = (
+    "https://github.com/auth-broker/package-pydantic-patch/blob/"
+    "6af1ffaea06fc4cd893df49ce3194bea9aa8f97e/"
+    "src/ab_core/pydantic_patch/examples/sqlmodel_examples/"
+    "app_resolved.py#L34-L61"
+)
+
 
 def contains_forward_ref(annotation: object) -> bool:
-    """Return whether an annotation contains unresolved forward references."""
     if isinstance(annotation, str | ForwardRef):
         return True
 
-    origin = get_origin(annotation)
-
-    # Literal values like Literal["cat"] are data values, not forward references.
-    if origin is Literal:
+    if get_origin(annotation) is Literal:
         return False
 
     return any(contains_forward_ref(arg) for arg in get_args(annotation))
 
 
-def _iter_related_models(annotation: object) -> set[type[BaseModel]]:
-    related_models: set[type[BaseModel]] = set()
+def _iter_models_in_module(module_name: str) -> list[type[BaseModel]]:
+    module = sys.modules.get(module_name)
+    if module is None:
+        return []
 
-    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
-        related_models.add(annotation)
+    return sorted(
+        {
+            value
+            for value in vars(module).values()
+            if (isinstance(value, type) and issubclass(value, BaseModel) and value.__module__ == module_name)
+        },
+        key=lambda model: model.__name__,
+    )
 
-    for arg in get_args(annotation):
-        related_models.update(_iter_related_models(arg))
 
-    return related_models
+def _iter_model_modules(root_model: type[BaseModel]) -> list[str]:
+    package_prefix = root_model.__module__.rsplit(".", 1)[0]
+
+    module_names = {
+        module_name
+        for module_name in sys.modules
+        if module_name == root_model.__module__ or module_name.startswith(f"{package_prefix}.")
+    }
+
+    return sorted(module_name for module_name in module_names if _iter_models_in_module(module_name))
 
 
 def unresolved_annotation_names(model: type[BaseModel]) -> list[str]:
-    """List field names that still contain forward references on a model graph."""
-    unresolved_fields: list[str] = []
-    to_visit: list[type[BaseModel]] = [model]
-    visited: set[type[BaseModel]] = set()
+    unresolved: list[str] = []
 
-    while to_visit:
-        current_model = to_visit.pop()
+    for module_name in _iter_model_modules(model):
+        for current_model in _iter_models_in_module(module_name):
+            annotations = getattr(current_model, "__annotations__", {})
 
-        if current_model in visited:
-            continue
+            for field_name, annotation in annotations.items():
+                if contains_forward_ref(annotation):
+                    if current_model is model:
+                        unresolved.append(field_name)
+                    else:
+                        unresolved.append(f"{current_model.__name__}.{field_name}")
 
-        visited.add(current_model)
+    return sorted(set(unresolved))
 
-        annotations = dict(getattr(current_model, "__annotations__", {}))
 
-        relationship_names = getattr(current_model, "__sqlmodel_relationships__", {})
-        for relationship_name in relationship_names:
-            if relationship_name in annotations:
-                continue
+def _module_alias(module_name: str) -> str:
+    return f"{module_name.rsplit('.', 1)[-1]}_module"
 
-            # SQLModel relationship annotations may bypass model_fields and only
-            # be discoverable from the class annotation namespace.
-            raw_annotation = getattr(current_model, relationship_name, None)
-            if raw_annotation is not None:
-                annotations[relationship_name] = raw_annotation
 
-        for field_name, annotation in annotations.items():
-            if contains_forward_ref(annotation):
-                if current_model is model:
-                    unresolved_fields.append(field_name)
-                else:
-                    unresolved_fields.append(f"{current_model.__name__}.{field_name}")
+def _forward_ref_name(annotation: object) -> str | None:
+    if isinstance(annotation, str):
+        return annotation.replace('"', "").replace("'", "").split("|", 1)[0].strip()
 
-            for related_model in _iter_related_models(annotation):
-                if related_model not in visited:
-                    to_visit.append(related_model)
+    if isinstance(annotation, ForwardRef):
+        return annotation.__forward_arg__.split("|", 1)[0].strip()
 
-    return unresolved_fields
+    for arg in get_args(annotation):
+        name = _forward_ref_name(arg)
+        if name:
+            return name
+
+    return None
+
+
+def _build_resolution_example(root_model: type[BaseModel]) -> str:
+    module_names = _iter_model_modules(root_model)
+    models_by_name = {
+        model.__name__: model for module_name in module_names for model in _iter_models_in_module(module_name)
+    }
+
+    imports = [f"import {module_name} as {_module_alias(module_name)}" for module_name in module_names]
+
+    model_imports = sorted(f"from {model.__module__} import {model.__name__}" for model in models_by_name.values())
+
+    bindings: list[str] = []
+
+    for module_name in module_names:
+        module_alias = _module_alias(module_name)
+
+        for model in _iter_models_in_module(module_name):
+            for annotation in getattr(model, "__annotations__", {}).values():
+                ref_name = _forward_ref_name(annotation)
+                if ref_name is None or ref_name not in models_by_name:
+                    continue
+
+                if hasattr(sys.modules[module_name], ref_name):
+                    continue
+
+                bindings.append(f"{module_alias}.{ref_name} = {ref_name}  # ty: ignore[unresolved-attribute]")
+
+    rebuild_models = ", ".join(
+        model.__name__ for model in sorted(models_by_name.values(), key=lambda value: value.__name__)
+    )
+
+    return "\n".join(
+        [
+            *imports,
+            "",
+            *model_imports,
+            "",
+            *sorted(set(bindings)),
+            "",
+            f"for model in ({rebuild_models}):",
+            "    model.model_rebuild(force=True)",
+        ]
+    )
 
 
 def build_forward_ref_error_message(
@@ -79,21 +136,7 @@ def build_forward_ref_error_message(
     model: type[BaseModel],
     unresolved_fields: list[str],
 ) -> str:
-    """Build a detailed error message for unresolved forward-reference hints."""
-    module_name = model.__module__
-    module = sys.modules.get(module_name)
-
-    models_in_module = (
-        [
-            value
-            for value in vars(module).values()
-            if isinstance(value, type) and issubclass(value, BaseModel) and value.__module__ == module_name
-        ]
-        if module is not None
-        else [model]
-    )
-
-    model_names = ", ".join(cls.__name__ for cls in models_in_module)
+    resolution_example = indent(_build_resolution_example(model), "    ")
 
     return dedent(
         f"""
@@ -101,28 +144,26 @@ def build_forward_ref_error_message(
 
         pydantic-patch is type-driven and needs real Python types when generating
         Pick/Omit/Partial/Required/Patch models. The model {model.__name__!r} has
-        unresolved annotation(s): {unresolved_fields!r}.
+        unresolved forward-reference annotation(s): {sorted(set(unresolved_fields))!r}.
 
-        Resolve the relationship references after all ORM models in the module have
-        been imported, then rebuild the models before calling Patch[...], Pick[...],
-        Omit[...], Partial[...] or Required[...].
+        This usually happens with SQLModel relationships split across modules, where
+        relationship attributes are declared with strings to avoid circular imports.
 
-        Suggested pattern for {module_name}:
+        See the resolved SQLModel example here:
+        {RESOLVED_EXAMPLE_URL}
 
-            # Import every module that defines related ORM models first.
-            # Then bind shallow relationship references at module level, for example:
-            #
-            # some_model_module.RelatedModel = RelatedModel
-            #
-            # Finally rebuild all affected models:
-            for model in ({model_names}):
-                model.model_rebuild(force=True)
+        Import every related ORM module first, bind the shallow circular references
+        onto their source modules, then rebuild every affected model before calling
+        Patch[...], Pick[...], Omit[...], Partial[...] or Required[...].
 
-        For SQLModel relationships, this often means binding shallow imports at
-        module level before calling model_rebuild(force=True).
+        Suggested fix:
 
-        In a package with circular SQLModel relationships, this usually belongs
-        in the package __init__.py or another central models module that imports
-        all ORM model modules first.
+        ```python
+{resolution_example}
+        ```
+
+        This setup usually belongs in your models package __init__.py, or in another
+        central models module that imports and prepares all ORM models before patch
+        schemas are generated.
         """
     ).strip()

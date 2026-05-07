@@ -1,5 +1,8 @@
-find . -type d -name ".venv" -prune -o -type f \( -name "*.py" -o -name "*.md" \) -print |
-sort | while IFS= read -r file; do
+find . \
+  \( -type d -name ".*" -prune \) -o \
+  \( -type f \( -name "*.py" -o -name "*.md" \) -print \) |
+sort |
+while IFS= read -r file; do
   ext="${file##*.}"
   rel="${file#./}"
 

@@ -639,6 +639,99 @@ Applied in this order:
 * `Union` / `Annotated`
 * SQLModel (including relationships)
 
+---
+
+### Forward references
+
+`pydantic-patch` does not currently support unresolved forward references.
+
+Because the library is type-driven, it needs real Python types when generating
+`Pick`, `Omit`, `Partial`, `Required`, or `Patch` models. This commonly affects
+SQLModel relationships split across multiple files, where relationships are
+declared using strings to avoid circular imports.
+
+For example:
+
+```python
+class Project(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
+
+    milestones: list["ProjectMilestone"] = Relationship(back_populates="project")
+```
+
+Calling `Patch[Project](...)` before resolving `"ProjectMilestone"` will raise
+`ForwardReferencesNotSupported`.
+
+To fix this, import all related model modules first, bind the missing shallow
+references onto each module, then call `model_rebuild(force=True)` before
+creating the patch model.
+
+```python
+import my_app.models.project as project_module
+import my_app.models.project_milestone as milestone_module
+import my_app.models.project_task as task_module
+import my_app.models.task_comment as comment_module
+
+from my_app.models import Project, ProjectMilestone, ProjectTask, TaskComment
+
+project_module.ProjectMilestone = ProjectMilestone
+
+milestone_module.Project = Project
+milestone_module.ProjectTask = ProjectTask
+
+task_module.ProjectMilestone = ProjectMilestone
+task_module.TaskComment = TaskComment
+
+comment_module.ProjectTask = ProjectTask
+
+for model in (TaskComment, ProjectTask, ProjectMilestone, Project):
+    model.model_rebuild(force=True)
+```
+
+Only create the patch schema after this setup:
+
+```python
+ProjectPatch = Patch[Project](
+    pick={"id", "name", "milestones"},
+    required={"id"},
+    child_models={
+        ProjectMilestone: PatchConfig(
+            pick={"id", "name", "tasks"},
+            required={"id"},
+        ),
+        ProjectTask: PatchConfig(
+            pick={"id", "title", "comments"},
+            required={"id"},
+        ),
+        TaskComment: PatchConfig(
+            pick={"id", "body"},
+            required={"id"},
+        ),
+    },
+)
+```
+
+In a real application, this setup usually belongs in your models package
+`__init__.py`, or in a central module that imports and prepares all ORM models
+before any patch schemas are generated.
+
+For SQLModel relationship annotations, prefer SQLAlchemy-compatible relationship
+strings such as:
+
+```python
+parent: "Project" = Relationship(back_populates="milestones")
+```
+
+rather than:
+
+```python
+parent: "Project | None" = Relationship(back_populates="milestones")
+```
+
+SQLAlchemy can resolve `"Project"` as a mapped class name, but it cannot resolve
+`"Project | None"` as a relationship target.
+
 ______________________________________________________________________
 
 ## Formatting and linting

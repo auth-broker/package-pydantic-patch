@@ -15,13 +15,20 @@ from ab_core.pydantic_patch.core.types import Any
 
 
 def get_source_field_names(model: type[BaseModel]) -> set[str]:
-    """Return source field names including SQLModel relationship attributes."""
+    """Return source field names including SQLModel relationships and computed fields."""
     field_names = set(model.model_fields)
 
     sqlmodel_relationships = getattr(model, "__sqlmodel_relationships__", {})
     field_names.update(sqlmodel_relationships)
 
+    field_names.update(get_computed_field_names(model))
+
     return field_names
+
+
+def get_computed_field_names(model: type[BaseModel]) -> set[str]:
+    """Return computed field names declared on a model."""
+    return set(getattr(model, "model_computed_fields", {}))
 
 
 def validate_fields_exist_on_model(

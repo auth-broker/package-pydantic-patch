@@ -12,6 +12,7 @@ from ab_core.pydantic_patch.core.cache import (
 from ab_core.pydantic_patch.core.config import normalise_fields
 from ab_core.pydantic_patch.core.errors import InvalidDiscriminatorError
 from ab_core.pydantic_patch.core.fields import (
+    get_computed_field_names,
     make_field_optional,
     make_field_required,
     validate_fields_exist_in_payload,
@@ -28,6 +29,8 @@ def apply_patch_payload(
     config: PatchConfig,
 ) -> CreateModelPayload:
     """Apply pick/omit/partial/required rules to a model payload."""
+    computed_fields = get_computed_field_names(model)
+
     validate_fields_exist_on_model(model, config.pick, operation="pick")
     validate_fields_exist_on_model(model, config.omit, operation="omit")
     validate_fields_exist_on_model(model, config.partial, operation="partial")
@@ -41,6 +44,13 @@ def apply_patch_payload(
     if config.omit is not None:
         payload = {
             field_name: field_payload for field_name, field_payload in payload.items() if field_name not in config.omit
+        }
+
+    if config.pick is None:
+        payload = {
+            field_name: field_payload
+            for field_name, field_payload in payload.items()
+            if field_name not in computed_fields
         }
 
     validate_fields_exist_in_payload(

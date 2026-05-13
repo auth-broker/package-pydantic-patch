@@ -22,6 +22,23 @@ def get_resolved_type_hints(model: type[BaseModel]) -> dict[str, object]:
         ) from error
 
 
+def get_computed_field_return_annotation(computed_field_info: object) -> object:
+    """Return the declared computed-field return annotation when available."""
+    return_type = getattr(computed_field_info, "return_type", PydanticUndefined)
+    if return_type is not PydanticUndefined:
+        return return_type
+
+    wrapped_property = getattr(computed_field_info, "wrapped_property", None)
+    if wrapped_property is None:
+        return PydanticUndefined
+
+    fget = getattr(wrapped_property, "fget", None)
+    if fget is None:
+        return PydanticUndefined
+
+    return getattr(fget, "__annotations__", {}).get("return", PydanticUndefined)
+
+
 def assert_no_forward_refs(model: type[BaseModel]) -> None:
     """Raise only when forward references cannot actually be resolved."""
     get_resolved_type_hints(model)
@@ -29,15 +46,9 @@ def assert_no_forward_refs(model: type[BaseModel]) -> None:
     unresolved_computed_fields = [
         field_name
         for field_name, computed_field_info in model.model_computed_fields.items()
-        if (
-            return_type := getattr(
-                computed_field_info,
-                "return_type",
-                PydanticUndefined,
-            )
+        if contains_forward_ref(
+            get_computed_field_return_annotation(computed_field_info)
         )
-        is not PydanticUndefined
-        and contains_forward_ref(return_type)
     ]
 
     if unresolved_computed_fields:

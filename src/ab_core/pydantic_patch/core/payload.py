@@ -9,7 +9,7 @@ from ab_core.pydantic_patch.core.types import Any
 
 from .orm_type_hints import apply_orm_relationship_fields
 from .payload_types import CreateModelPayload
-from .type_hints import get_resolved_type_hints
+from .type_hints import get_computed_field_return_annotation, get_resolved_type_hints
 
 
 def clone_field_info(field_info: FieldInfo) -> FieldInfo:
@@ -21,14 +21,14 @@ def _extract_discriminator_metadata(field_info: FieldInfo) -> tuple[Discriminato
     return tuple(item for item in field_info.metadata if isinstance(item, Discriminator))
 
 
-def _computed_field_annotation(computed_field_info: object) -> object:
-    return_type = getattr(computed_field_info, "return_type", PydanticUndefined)
+def _computed_field_annotation(computed_field_info: object) -> Any:
+    return_type = get_computed_field_return_annotation(computed_field_info)
     if return_type is PydanticUndefined:
         return Any
     return return_type
 
 
-def _computed_field_info(computed_field_info: object) -> FieldInfo:
+def _computed_field_info(computed_field_info: object) -> Any:
     return Field(
         default=PydanticUndefined,
         alias=getattr(computed_field_info, "alias", None),
@@ -45,7 +45,7 @@ def build_payload_from_model(model: type[BaseModel]) -> CreateModelPayload:
     type_hints = get_resolved_type_hints(model)
 
     for field_name, field_info in model.model_fields.items():
-        annotation = type_hints.get(field_name, field_info.annotation)
+        annotation: Any = type_hints.get(field_name, field_info.annotation)
         discriminator_metadata = _extract_discriminator_metadata(field_info)
 
         if discriminator_metadata and get_origin(annotation) is not Annotated:

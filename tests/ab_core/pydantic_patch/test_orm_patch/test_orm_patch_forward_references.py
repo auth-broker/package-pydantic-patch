@@ -1,7 +1,10 @@
-from pydantic import BaseModel
+import pytest
+from pydantic import BaseModel, computed_field
 from sqlalchemy.orm import registry
 from sqlmodel import Field, Relationship, SQLModel
 
+from ab_core.pydantic_patch.core.errors import ForwardReferencesNotSupported
+from ab_core.pydantic_patch.core.type_hints import assert_no_forward_refs
 from ab_core.pydantic_patch.orm_patch import recursive_patch_orm_scalar
 
 mapper_registry = registry()
@@ -40,6 +43,13 @@ class OrmForwardParentPatch(BaseModel):
     children: list[OrmForwardChildPatch] = []
 
 
+class OrmComputedForwardRefModel(BaseModel):
+    @computed_field
+    @property
+    def manager(self) -> "OrmMissingManager":
+        raise NotImplementedError
+
+
 def test_recursive_patch_orm_scalar_raises_custom_error_for_orm_forward_refs():
     parent = OrmForwardParent(id=1, name="Parent")
     patch = OrmForwardParentPatch(id=1, children=[])
@@ -47,6 +57,11 @@ def test_recursive_patch_orm_scalar_raises_custom_error_for_orm_forward_refs():
     recursive_patch_orm_scalar(parent, patch)
 
     assert parent.id == 1
+
+
+def test_orm_patch_computed_field_forward_ref_raises_custom_error() -> None:
+    with pytest.raises(ForwardReferencesNotSupported, match="manager"):
+        assert_no_forward_refs(OrmComputedForwardRefModel)
 
 
 def teardown_module() -> None:

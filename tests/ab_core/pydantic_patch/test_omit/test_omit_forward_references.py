@@ -1,5 +1,5 @@
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 from sqlalchemy.orm import registry
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -20,6 +20,13 @@ class OmitForwardPydanticParent(BaseModel):
 
 class OmitForwardPydanticChild(BaseModel):
     id: int
+
+
+class OmitComputedForwardRefModel(BaseModel):
+    @computed_field
+    @property
+    def manager(self) -> "OmitMissingManager":
+        raise NotImplementedError
 
 
 class OmitForwardSqlChild(ForwardRefSQLModel, table=True):
@@ -64,6 +71,11 @@ def test_resolved_sqlmodel_relationship_forward_refs_are_supported(operation):
     model = operation()
 
     assert "name" not in model.model_fields
+
+
+def test_omit_computed_field_forward_ref_raises_custom_error() -> None:
+    with pytest.raises(ForwardReferencesNotSupported, match="manager"):
+        Omit[OmitComputedForwardRefModel]()
 
 
 def teardown_module() -> None:

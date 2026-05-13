@@ -18,6 +18,8 @@ except ImportError:  # pragma: no cover
     sa_inspect = None  # ty:ignore[invalid-assignment]
 
     class NoInspectionAvailable(Exception):
+        """Fallback SQLAlchemy inspection error when SQLAlchemy is unavailable."""
+
         pass
 
 

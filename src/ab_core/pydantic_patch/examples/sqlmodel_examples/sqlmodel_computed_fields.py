@@ -4,8 +4,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from pydantic import computed_field
-from sqlmodel import Field, SQLModel
 
 import ab_core.pydantic_patch.examples.sqlmodel_examples.models.user as user_module
 from ab_core.pydantic_patch.orm_patch import recursive_patch_orm_scalar

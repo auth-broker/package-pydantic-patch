@@ -26,6 +26,7 @@ class PatchComputedForwardRefModel(BaseModel):
     @computed_field
     @property
     def manager(self) -> "PatchMissingManager":
+        """Return the unresolved computed manager type."""
         raise NotImplementedError
 
 

@@ -11,6 +11,7 @@ class ComputedFieldModel(BaseModel):
     @computed_field
     @property
     def full_name(self) -> str:
+        """Return the computed full name."""
         return f"{self.first_name} {self.last_name}"
 
 

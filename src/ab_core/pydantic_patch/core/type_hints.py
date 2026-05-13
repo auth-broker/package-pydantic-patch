@@ -46,9 +46,7 @@ def assert_no_forward_refs(model: type[BaseModel]) -> None:
     unresolved_computed_fields = [
         field_name
         for field_name, computed_field_info in model.model_computed_fields.items()
-        if contains_forward_ref(
-            get_computed_field_return_annotation(computed_field_info)
-        )
+        if contains_forward_ref(get_computed_field_return_annotation(computed_field_info))
     ]
 
     if unresolved_computed_fields:

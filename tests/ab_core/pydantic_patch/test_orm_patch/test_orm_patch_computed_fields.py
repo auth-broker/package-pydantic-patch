@@ -18,6 +18,7 @@ class UserPatch(BaseModel):
     @computed_field
     @property
     def full_name(self) -> str:
+        """Return a computed field that should not be patched onto the ORM model."""
         return "Ignored Computed Value"
 
 

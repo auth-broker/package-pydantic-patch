@@ -26,6 +26,7 @@ class OmitComputedForwardRefModel(BaseModel):
     @computed_field
     @property
     def manager(self) -> "OmitMissingManager":
+        """Return the unresolved computed manager type."""
         raise NotImplementedError
 
 

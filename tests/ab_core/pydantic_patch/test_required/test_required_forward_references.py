@@ -26,6 +26,7 @@ class RequiredComputedForwardRefModel(BaseModel):
     @computed_field
     @property
     def manager(self) -> "RequiredMissingManager":
+        """Return the unresolved computed manager type."""
         raise NotImplementedError
 
 

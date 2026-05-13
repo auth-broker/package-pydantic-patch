@@ -47,6 +47,7 @@ class OrmComputedForwardRefModel(BaseModel):
     @computed_field
     @property
     def manager(self) -> "OrmMissingManager":
+        """Return the unresolved computed manager type."""
         raise NotImplementedError
 
 

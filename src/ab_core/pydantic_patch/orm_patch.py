@@ -13,35 +13,53 @@ else:
 
 try:
     from sqlalchemy import inspect as sa_inspect
+    from sqlalchemy.exc import NoInspectionAvailable
 except ImportError:  # pragma: no cover
     sa_inspect = None  # ty:ignore[invalid-assignment]
+
+    class NoInspectionAvailable(Exception):
+        pass
 
 
 def _provided_values(model: BaseModel) -> dict[str, object]:
     return {name: getattr(model, name) for name in model.model_fields_set}
 
 
-def _primary_key_names(model_cls: type[Any]) -> set[str]:
+def _mapper_for(model_cls: type[Any]) -> Any | None:
     if sa_inspect is None:
+        return None
+
+    try:
+        return sa_inspect(model_cls).mapper
+    except NoInspectionAvailable:
+        return None
+
+
+def _is_orm_mapped(model_cls: type[Any]) -> bool:
+    return _mapper_for(model_cls) is not None
+
+
+def _primary_key_names(model_cls: type[Any]) -> set[str]:
+    mapper = _mapper_for(model_cls)
+    if mapper is None:
         raise RuntimeError('SQLAlchemy support is not installed. Install it with: pip install "pydantic-patch[orm]"')
 
-    mapper = sa_inspect(model_cls).mapper
     return {column.key for column in mapper.primary_key}
 
 
 def _relationship_map(model_cls: type[Any]) -> dict[str, RelationshipProperty]:
-    if sa_inspect is None:
+    mapper = _mapper_for(model_cls)
+    if mapper is None:
         raise RuntimeError('SQLAlchemy support is not installed. Install it with: pip install "pydantic-patch[orm]"')
 
-    mapper = sa_inspect(model_cls).mapper
     return {relationship.key: relationship for relationship in mapper.relationships}
 
 
 def _scalar_attribute_names(model_cls: type[Any]) -> set[str]:
-    if sa_inspect is None:
+    mapper = _mapper_for(model_cls)
+    if mapper is None:
         raise RuntimeError('SQLAlchemy support is not installed. Install it with: pip install "pydantic-patch[orm]"')
 
-    mapper = sa_inspect(model_cls).mapper
     return {column.key for column in mapper.column_attrs}
 
 
@@ -60,14 +78,35 @@ def _identity_tuple(
     return tuple(values)
 
 
-def recursive_patch_orm_scalar(
+def _recursive_patch_pydantic_scalar(
+    instance: BaseModel,
+    values: BaseModel,
+) -> None:
+    target_fields = set(instance.model_fields)
+
+    for key, value in _provided_values(values).items():
+        if key not in target_fields:
+            continue
+
+        current_value = getattr(instance, key, None)
+
+        if isinstance(current_value, BaseModel) and isinstance(value, BaseModel):
+            recursive_patch_scalar(current_value, value)
+            continue
+
+        if isinstance(current_value, list) and isinstance(value, list):
+            setattr(instance, key, value)
+            continue
+
+        setattr(instance, key, value)
+
+
+def _recursive_patch_orm_scalar(
     orm_instance: Any,
     values: BaseModel,
 ) -> None:
     """Recursively apply a Pydantic patch model onto a SQLAlchemy/SQLModel ORM graph."""
     orm_cls = type(orm_instance)
-    assert_no_forward_refs(orm_cls)
-    assert_no_forward_refs(type(values))
 
     pk_names = _primary_key_names(orm_cls)
     relationships = _relationship_map(orm_cls)
@@ -123,7 +162,7 @@ def recursive_patch_orm_scalar(
                         msg = f"No existing {target_cls.__name__} found for {key!r} primary key {child_identity!r}"
                         raise ValueError(msg)
 
-                recursive_patch_orm_scalar(child_instance, child_patch)
+                recursive_patch_scalar(child_instance, child_patch)
 
             continue
 
@@ -137,4 +176,32 @@ def recursive_patch_orm_scalar(
             current_child = target_cls()
             setattr(orm_instance, key, current_child)
 
-        recursive_patch_orm_scalar(current_child, value)
+        recursive_patch_scalar(current_child, value)
+
+
+def recursive_patch_scalar(
+    instance: Any,
+    values: BaseModel,
+) -> None:
+    """Recursively apply a Pydantic patch model onto Pydantic or ORM object graphs."""
+    assert_no_forward_refs(type(instance))
+    assert_no_forward_refs(type(values))
+
+    if _is_orm_mapped(type(instance)):
+        _recursive_patch_orm_scalar(instance, values)
+        return
+
+    if isinstance(instance, BaseModel):
+        _recursive_patch_pydantic_scalar(instance, values)
+        return
+
+    msg = f"Unsupported patch target type: {type(instance).__name__}"
+    raise TypeError(msg)
+
+
+def recursive_patch_orm_scalar(
+    orm_instance: Any,
+    values: BaseModel,
+) -> None:
+    """Backward-compatible alias for recursive_patch_scalar."""
+    recursive_patch_scalar(orm_instance, values)

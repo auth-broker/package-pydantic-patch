@@ -34,10 +34,7 @@ def get_computed_field_getter(
     if isinstance(wrapped_property, cached_property):
         return wrapped_property.func
 
-    raise TypeError(
-        "Unsupported computed field wrapper type: "
-        f"{type(wrapped_property).__name__}."
-    )
+    raise TypeError(f"Unsupported computed field wrapper type: {type(wrapped_property).__name__}.")
 
 
 def get_raw_computed_field_return_annotation(
@@ -77,9 +74,7 @@ def computed_field_contains_forward_ref(
     computed_field_info: ComputedFieldInfo,
 ) -> bool:
     """Return whether a computed field has an unresolved return annotation."""
-    return contains_forward_ref(
-        get_raw_computed_field_return_annotation(computed_field_info)
-    )
+    return contains_forward_ref(get_raw_computed_field_return_annotation(computed_field_info))
 
 
 def create_computed_field_info(

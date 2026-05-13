@@ -6,23 +6,24 @@ from typing import get_args, get_origin
 
 from pydantic import BaseModel
 
+from ab_core.pydantic_patch.core.computed_field_type_hints import iter_computed_field_infos
 from ab_core.pydantic_patch.core.errors import (
     ConflictingPatchConfigError,
     InvalidPatchFieldError,
 )
+from ab_core.pydantic_patch.core.field_type_hints import iter_model_field_infos
+from ab_core.pydantic_patch.core.orm_type_hints import iter_orm_relationship_names
 from ab_core.pydantic_patch.core.payload_types import CreateModelField, CreateModelPayload
 from ab_core.pydantic_patch.core.types import Any
 
 
 def get_source_field_names(model: type[BaseModel]) -> set[str]:
-    """Return source field names including computed fields and SQLModel relationships."""
-    field_names = set(model.model_fields)
-    field_names.update(model.model_computed_fields)
-
-    sqlmodel_relationships = getattr(model, "__sqlmodel_relationships__", {})
-    field_names.update(sqlmodel_relationships)
-
-    return field_names
+    """Return transformable source field names."""
+    return {
+        *(field_name for field_name, _ in iter_model_field_infos(model)),
+        *(field_name for field_name, _ in iter_computed_field_infos(model)),
+        *iter_orm_relationship_names(model),
+    }
 
 
 def validate_fields_exist_on_model(

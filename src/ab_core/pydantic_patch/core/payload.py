@@ -2,7 +2,7 @@
 
 from typing import Annotated, get_origin
 
-from pydantic import BaseModel, Discriminator, Field, create_model
+from pydantic import BaseModel, Discriminator, create_model
 from pydantic.fields import FieldInfo, PydanticUndefined
 
 from .orm_type_hints import apply_orm_relationship_fields
@@ -17,32 +17,6 @@ def clone_field_info(field_info: FieldInfo) -> FieldInfo:
 
 def _extract_discriminator_metadata(field_info: FieldInfo) -> tuple[Discriminator, ...]:
     return tuple(item for item in field_info.metadata if isinstance(item, Discriminator))
-
-
-def apply_computed_fields(
-    model: type[BaseModel],
-    type_hints: dict[str, object],
-    payload: CreateModelPayload,
-) -> None:
-    """Insert computed fields into the create_model payload."""
-    computed_fields = getattr(model, "model_computed_fields", {})
-
-    for field_name, computed_info in computed_fields.items():
-        if field_name in payload:
-            continue
-
-        annotation = type_hints.get(field_name)
-
-        if annotation is None:
-            annotation = getattr(computed_info, "return_type", None)
-
-        if annotation is None:
-            annotation = getattr(computed_info, "annotation", None)
-
-        if annotation is None:
-            annotation = object
-
-        payload[field_name] = (annotation, Field(default=None))
 
 
 def build_payload_from_model(model: type[BaseModel]) -> CreateModelPayload:
@@ -63,7 +37,6 @@ def build_payload_from_model(model: type[BaseModel]) -> CreateModelPayload:
 
         payload[field_name] = (annotation, field_copy)
 
-    apply_computed_fields(model, type_hints, payload)
     apply_orm_relationship_fields(model, type_hints, payload)
 
     return payload

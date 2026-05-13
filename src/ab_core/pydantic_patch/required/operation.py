@@ -11,12 +11,10 @@ from ab_core.pydantic_patch.core.cache import (
 )
 from ab_core.pydantic_patch.core.config import normalise_fields
 from ab_core.pydantic_patch.core.fields import (
-    get_computed_field_names,
     make_field_required,
     validate_fields_exist_in_payload,
     validate_fields_exist_on_model,
 )
-from ab_core.pydantic_patch.core.errors import ConflictingPatchConfigError
 from ab_core.pydantic_patch.core.payload import CreateModelPayload
 from ab_core.pydantic_patch.core.transform import transform_model
 from ab_core.pydantic_patch.required.config import RequiredConfig
@@ -30,13 +28,6 @@ def apply_required_payload(
     """Mark configured payload fields as required."""
     validate_fields_exist_on_model(model, config.fields, operation="required")
     validate_fields_exist_in_payload(payload, config.fields, model=model, operation="required")
-
-    invalid_computed_fields = sorted(set(config.fields or ()) & get_computed_field_names(model))
-    if invalid_computed_fields:
-        raise ConflictingPatchConfigError(
-            f"Computed field(s) {invalid_computed_fields} cannot be made required on {model.__name__} "
-            "because computed fields are derived values, not input fields."
-        )
 
     if not config.fields:
         return payload

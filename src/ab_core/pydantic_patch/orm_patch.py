@@ -37,6 +37,14 @@ def _relationship_map(model_cls: type[Any]) -> dict[str, RelationshipProperty]:
     return {relationship.key: relationship for relationship in mapper.relationships}
 
 
+def _scalar_attribute_names(model_cls: type[Any]) -> set[str]:
+    if sa_inspect is None:
+        raise RuntimeError('SQLAlchemy support is not installed. Install it with: pip install "pydantic-patch[orm]"')
+
+    mapper = sa_inspect(model_cls).mapper
+    return {column.key for column in mapper.column_attrs}
+
+
 def _identity_tuple(
     instance_or_patch: Any,
     pk_names: set[str],
@@ -63,6 +71,7 @@ def recursive_patch_orm_scalar(
 
     pk_names = _primary_key_names(orm_cls)
     relationships = _relationship_map(orm_cls)
+    scalar_attributes = _scalar_attribute_names(orm_cls)
 
     for key, value in _provided_values(values).items():
         if key in pk_names:
@@ -71,6 +80,8 @@ def recursive_patch_orm_scalar(
         relationship = relationships.get(key)
 
         if relationship is None:
+            if key not in scalar_attributes:
+                continue
             setattr(orm_instance, key, value)
             continue
 

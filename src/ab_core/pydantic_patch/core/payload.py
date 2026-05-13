@@ -2,8 +2,10 @@
 
 from typing import Annotated, get_origin
 
-from pydantic import BaseModel, Discriminator, create_model
+from pydantic import BaseModel, Discriminator, Field, create_model
 from pydantic.fields import FieldInfo, PydanticUndefined
+
+from ab_core.pydantic_patch.core.types import Any
 
 from .orm_type_hints import apply_orm_relationship_fields
 from .payload_types import CreateModelPayload
@@ -19,8 +21,26 @@ def _extract_discriminator_metadata(field_info: FieldInfo) -> tuple[Discriminato
     return tuple(item for item in field_info.metadata if isinstance(item, Discriminator))
 
 
+def _computed_field_annotation(computed_field_info: object) -> object:
+    return_type = getattr(computed_field_info, "return_type", PydanticUndefined)
+    if return_type is PydanticUndefined:
+        return Any
+    return return_type
+
+
+def _computed_field_info(computed_field_info: object) -> FieldInfo:
+    return Field(
+        default=PydanticUndefined,
+        alias=getattr(computed_field_info, "alias", None),
+        title=getattr(computed_field_info, "title", None),
+        description=getattr(computed_field_info, "description", None),
+        examples=getattr(computed_field_info, "examples", None),
+        json_schema_extra=getattr(computed_field_info, "json_schema_extra", None),
+    )
+
+
 def build_payload_from_model(model: type[BaseModel]) -> CreateModelPayload:
-    """Build a create_model payload from model fields and relationships."""
+    """Build a create_model payload from model fields, computed fields, and relationships."""
     payload: CreateModelPayload = {}
     type_hints = get_resolved_type_hints(model)
 
@@ -36,6 +56,15 @@ def build_payload_from_model(model: type[BaseModel]) -> CreateModelPayload:
         field_copy.default = PydanticUndefined if field_info.is_required() else field_info.default
 
         payload[field_name] = (annotation, field_copy)
+
+    for field_name, computed_field_info in model.model_computed_fields.items():
+        if field_name in payload:
+            continue
+
+        payload[field_name] = (
+            _computed_field_annotation(computed_field_info),
+            _computed_field_info(computed_field_info),
+        )
 
     apply_orm_relationship_fields(model, type_hints, payload)
 

@@ -1,5 +1,5 @@
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 from sqlalchemy.orm import registry
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -20,6 +20,14 @@ class PickForwardPydanticParent(BaseModel):
 
 class PickForwardPydanticChild(BaseModel):
     id: int
+
+
+class PickComputedForwardRefModel(BaseModel):
+    @computed_field
+    @property
+    def manager(self) -> "PickMissingManager":
+        """Return the unresolved computed manager type."""
+        raise NotImplementedError
 
 
 class PickForwardSqlChild(ForwardRefSQLModel, table=True):
@@ -64,6 +72,11 @@ def test_resolved_sqlmodel_relationship_forward_refs_are_supported(operation):
     model = operation()
 
     assert "children" in model.model_fields
+
+
+def test_pick_computed_field_forward_ref_raises_custom_error() -> None:
+    with pytest.raises(ForwardReferencesNotSupported, match="manager"):
+        Pick[PickComputedForwardRefModel]()
 
 
 def teardown_module() -> None:

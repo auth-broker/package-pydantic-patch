@@ -1,5 +1,5 @@
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 from sqlalchemy.orm import registry
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -20,6 +20,14 @@ class PatchForwardPydanticParent(BaseModel):
 
 class PatchForwardPydanticChild(BaseModel):
     id: int
+
+
+class PatchComputedForwardRefModel(BaseModel):
+    @computed_field
+    @property
+    def manager(self) -> "PatchMissingManager":
+        """Return the unresolved computed manager type."""
+        raise NotImplementedError
 
 
 class PatchForwardSqlChild(ForwardRefSQLModel, table=True):
@@ -94,6 +102,11 @@ def test_patch_resolved_pydantic_forward_refs_are_supported():
     )
 
     assert "child" in patch_model.model_fields
+
+
+def test_patch_computed_field_forward_ref_raises_custom_error() -> None:
+    with pytest.raises(ForwardReferencesNotSupported, match="manager"):
+        Patch[PatchComputedForwardRefModel]()
 
 
 def teardown_module() -> None:

@@ -1,43 +1,24 @@
-"""Pydantic create_model payload helpers."""
+"""Pydantic create_model payload aggregation helpers."""
 
 from typing import Annotated, get_origin
 
-from pydantic import BaseModel, Discriminator, create_model
-from pydantic.fields import FieldInfo, PydanticUndefined
+from pydantic import BaseModel, create_model
 
-from .orm_type_hints import apply_orm_relationship_fields
+from .computed_field_type_hints import apply_computed_fields_to_payload
+from .field_type_hints import apply_model_fields_to_payload
+from .orm_type_hints import apply_orm_relationships_to_payload
 from .payload_types import CreateModelPayload
 from .type_hints import get_resolved_type_hints
 
 
-def clone_field_info(field_info: FieldInfo) -> FieldInfo:
-    """Return a shallow copy of FieldInfo suitable for mutation."""
-    return field_info._copy()  # pyright: ignore[reportPrivateUsage]
-
-
-def _extract_discriminator_metadata(field_info: FieldInfo) -> tuple[Discriminator, ...]:
-    return tuple(item for item in field_info.metadata if isinstance(item, Discriminator))
-
-
 def build_payload_from_model(model: type[BaseModel]) -> CreateModelPayload:
-    """Build a create_model payload from model fields and relationships."""
+    """Build a create_model payload from fields, computed fields, and relationships."""
     payload: CreateModelPayload = {}
-    type_hints = get_resolved_type_hints(model)
+    resolved_type_hints = get_resolved_type_hints(model)
 
-    for field_name, field_info in model.model_fields.items():
-        annotation = type_hints.get(field_name, field_info.annotation)
-        discriminator_metadata = _extract_discriminator_metadata(field_info)
-
-        if discriminator_metadata and get_origin(annotation) is not Annotated:
-            annotation = Annotated[annotation, *discriminator_metadata]
-
-        field_copy = clone_field_info(field_info)
-
-        field_copy.default = PydanticUndefined if field_info.is_required() else field_info.default
-
-        payload[field_name] = (annotation, field_copy)
-
-    apply_orm_relationship_fields(model, type_hints, payload)
+    apply_model_fields_to_payload(model, resolved_type_hints, payload)
+    apply_computed_fields_to_payload(model, payload)
+    apply_orm_relationships_to_payload(model, resolved_type_hints, payload)
 
     return payload
 

@@ -590,6 +590,71 @@ class HouseholdPatch(BaseModel):
 
 ---
 
+### Computed Fields
+
+`pydantic-patch` supports Pydantic `@computed_field` values in generated models.
+
+Computed fields are treated like regular fields for transformation purposes, so they can be selected, omitted, made optional, or made required using `Pick`, `Omit`, `Partial`, `Required`, and `Patch`.
+
+#### Python
+
+**Before**
+
+```python
+from pydantic import BaseModel, computed_field
+
+
+class User(BaseModel):
+    first_name: str
+    last_name: str
+
+    @computed_field
+    @property
+    def full_name(self) -> str:
+        return f"{self.first_name} {self.last_name}"
+```
+
+---
+
+**Transform**
+
+```python
+UserDisplay = Pick[User](fields={"full_name"})
+
+UserPatch = Patch[User](
+    pick={"first_name", "full_name"},
+    partial={"first_name"},
+    required={"full_name"},
+)
+```
+
+---
+
+**After (conceptual)**
+
+```python
+class UserDisplay(BaseModel):
+    full_name: str
+
+
+class UserPatch(BaseModel):
+    first_name: str | None = None
+    full_name: str
+```
+
+---
+
+Computed fields become part of the generated model payload, which means they:
+
+* participate in `pick` / `omit`
+* can be made optional with `partial`
+* can be forced required with `required`
+* work recursively inside nested transformed models
+
+When using `recursive_patch_orm_scalar(...)`, computed fields from patch payloads are ignored unless they correspond to real mapped ORM scalar attributes or relationships.
+
+---
+
 ## Additional Notes
 
 ### Caching

@@ -27,11 +27,23 @@ def _provided_values(model: BaseModel) -> dict[str, object]:
     return {name: getattr(model, name) for name in model.model_fields_set}
 
 
-def _patch_scalar_value(instance: Any, key: str, value: Any) -> None:
+def _patch_scalar_value(
+    instance: Any,
+    key: str,
+    value: Any,
+    *,
+    copy_nested_basemodel: bool = False,
+) -> None:
     current_value = getattr(instance, key, None)
 
     if isinstance(current_value, BaseModel) and isinstance(value, BaseModel):
-        recursive_patch_scalar(current_value, value)
+        target_value = current_value.model_copy(deep=True) if copy_nested_basemodel else current_value
+
+        recursive_patch_scalar(target_value, value)
+
+        # Important for ORM scalar JSON/Pydantic fields:
+        # reassign the merged current value so SQLAlchemy sees the column changed.
+        setattr(instance, key, target_value)
         return
 
     setattr(instance, key, value)
@@ -94,7 +106,7 @@ def _recursive_patch_pydantic_scalar(
     instance: BaseModel,
     values: BaseModel,
 ) -> None:
-    target_fields = set(instance.model_fields)
+    target_fields = set(type(instance).model_fields)
 
     for key, value in _provided_values(values).items():
         if key not in target_fields:
@@ -129,7 +141,12 @@ def _recursive_patch_orm_scalar(
         if relationship is None:
             if key not in scalar_attributes:
                 continue
-            _patch_scalar_value(orm_instance, key, value)
+            _patch_scalar_value(
+                orm_instance,
+                key,
+                value,
+                copy_nested_basemodel=True,
+            )
             continue
 
         if value is None:

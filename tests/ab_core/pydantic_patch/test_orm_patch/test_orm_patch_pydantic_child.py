@@ -1,11 +1,10 @@
-from typing import Optional
+from pydantic import BaseModel
+from sqlalchemy import Column
+from sqlmodel import Field, SQLModel
 
 from ab_core.pydantic_patch.orm_patch import recursive_patch_orm_scalar
 from ab_core.pydantic_patch.patch import Patch, PatchConfig
 from ab_core.pydantic_patch.pydantic_jsonb import PydanticJSONB
-from pydantic import BaseModel
-from sqlalchemy import Column
-from sqlmodel import Field, SQLModel
 
 
 class SupplierAddress(BaseModel):
@@ -19,7 +18,7 @@ class SupplierAddress(BaseModel):
 class QuoteWithAddress(SQLModel, table=True):
     __tablename__ = "test_quote_with_address"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     claim_number: str = ""
 
     supplier_address: SupplierAddress = Field(
@@ -74,6 +73,7 @@ def test_recursive_patch_orm_scalar_recursively_patches_pydantic_jsonb_scalar() 
     assert quote.supplier_address.suburb == "Sydney"
     assert quote.supplier_address.state == "VIC"
     assert quote.supplier_address.postcode == "2000"
+
 
 def test_recursive_patch_orm_scalar_ignores_parent_primary_key() -> None:
     quote = QuoteWithAddress(

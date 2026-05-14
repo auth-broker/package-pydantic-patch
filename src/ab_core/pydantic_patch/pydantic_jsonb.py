@@ -59,24 +59,40 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 
 class PydanticJSONB[T](TypeDecorator):
-   impl = JSONB
-   cache_ok = True
+    """A SQLAlchemy TypeDecorator that serializes/deserializes Pydantic models to/from JSONB.
 
-   def __init__(self, pydantic_type: type[T]) -> None:
-       super().__init__()
-       self.adapter = TypeAdapter(pydantic_type)
+    This allows storing Pydantic models in PostgreSQL JSONB columns while maintaining
+    type safety and validation.
+    """
 
-   @override
-   def process_bind_param(self, value: T | None, dialect: Dialect) -> Any:
-       if value is None:
-           return None
-       return self.adapter.dump_python(value, mode="json")
+    impl = JSONB
+    cache_ok = True
 
-   @override
-   def process_result_value(self, value: Any, dialect: Dialect) -> T | None:
-       if value is None:
-           return None
-       return self.adapter.validate_python(value)
+    def __init__(self, pydantic_type: type[T]) -> None:
+        """Initialize the PydanticJSONB type decorator.
 
-   def coerce_compared_value(self, op: Any, value: Any) -> Any:
-       return cast(JSONB, self.impl).coerce_compared_value(op, value)
+        Args:
+            pydantic_type: The Pydantic model class to serialize/deserialize.
+
+        """
+        super().__init__()
+        self.adapter = TypeAdapter(pydantic_type)
+
+    @override
+    def process_bind_param(self, value: T | None, dialect: Dialect) -> Any:
+        if value is None:
+            return None
+        return self.adapter.dump_python(value, mode="json")
+
+    @override
+    def process_result_value(self, value: Any, dialect: Dialect) -> T | None:
+        if value is None:
+            return None
+        return self.adapter.validate_python(value)
+
+    def coerce_compared_value(self, op: Any, value: Any) -> Any:
+        """Coerce the compared value for SQL operations.
+
+        Delegates to the underlying JSONB implementation for comparison operations.
+        """
+        return cast(JSONB, self.impl).coerce_compared_value(op, value)

@@ -27,6 +27,16 @@ def _provided_values(model: BaseModel) -> dict[str, object]:
     return {name: getattr(model, name) for name in model.model_fields_set}
 
 
+def _patch_scalar_value(instance: Any, key: str, value: Any) -> None:
+    current_value = getattr(instance, key, None)
+
+    if isinstance(current_value, BaseModel) and isinstance(value, BaseModel):
+        recursive_patch_scalar(current_value, value)
+        return
+
+    setattr(instance, key, value)
+
+
 def _mapper_for(model_cls: type[Any]) -> Any | None:
     if sa_inspect is None:
         return None
@@ -92,15 +102,11 @@ def _recursive_patch_pydantic_scalar(
 
         current_value = getattr(instance, key, None)
 
-        if isinstance(current_value, BaseModel) and isinstance(value, BaseModel):
-            recursive_patch_scalar(current_value, value)
-            continue
-
         if isinstance(current_value, list) and isinstance(value, list):
             setattr(instance, key, value)
             continue
 
-        setattr(instance, key, value)
+        _patch_scalar_value(instance, key, value)
 
 
 def _recursive_patch_orm_scalar(
@@ -123,7 +129,7 @@ def _recursive_patch_orm_scalar(
         if relationship is None:
             if key not in scalar_attributes:
                 continue
-            setattr(orm_instance, key, value)
+            _patch_scalar_value(orm_instance, key, value)
             continue
 
         if value is None:

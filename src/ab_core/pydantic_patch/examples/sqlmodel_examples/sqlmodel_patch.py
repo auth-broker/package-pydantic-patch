@@ -2,7 +2,6 @@
 
 import os
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends as FDepends
@@ -37,6 +36,26 @@ ProjectPatch = Patch[Project](
         ),
         TaskComment: PatchConfig(
             pick={"id", "body"},
+        ),
+    },
+)
+
+ProjectResponse = Patch[Project](
+    name="ProjectResponse",
+    pick={"id", "name", "milestones"},
+    required={"id"},
+    child_models={
+        ProjectMilestone: PatchConfig(
+            pick={"id", "name", "tasks"},
+            required={"id"},
+        ),
+        ProjectTask: PatchConfig(
+            pick={"id", "title", "comments"},
+            required={"id"},
+        ),
+        TaskComment: PatchConfig(
+            pick={"id", "body"},
+            required={"id"},
         ),
     },
 )
@@ -91,7 +110,7 @@ async def lifespan(
 app = FastAPI(lifespan=lifespan)
 
 
-@app.get("/projects/{project_id}", response_model=Project)
+@app.get("/projects/{project_id}", response_model=ProjectResponse)
 def get_project(
     project_id: int,
     db_session: Annotated[Session, FDepends(db_session_sync)],
@@ -104,7 +123,7 @@ def get_project(
     return project
 
 
-@app.patch("/projects/{project_id}", response_model=Project)
+@app.patch("/projects/{project_id}", response_model=ProjectResponse)
 def patch_project(
     project_id: int,
     patch: ProjectPatch,
@@ -122,15 +141,6 @@ def patch_project(
     return project
 
 
-def get_module_path(file_path: str) -> str:
-    parts = Path(file_path).resolve().with_suffix("").relative_to(Path.cwd()).parts
-
-    if parts[0] == "src":
-        parts = parts[1:]
-
-    return ".".join(parts)
-
-
 # =========================
 # RUN
 # =========================
@@ -139,7 +149,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        f"{get_module_path(__file__)}:app",
+        app,
         host="0.0.0.0",
         port=8000,
         reload=False,

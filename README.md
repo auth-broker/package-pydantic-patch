@@ -704,7 +704,8 @@ Applied in this order:
 
 ### Forward references
 
-`pydantic-patch` does not currently support unresolved forward references.
+`pydantic-patch` automatically resolves forward references among already
+imported sibling model classes.
 
 Because the library is type-driven, it needs real Python types when generating
 `Pick`, `Omit`, `Partial`, `Required`, or `Patch` models. This commonly affects
@@ -721,12 +722,15 @@ class Project(SQLModel, table=True):
     milestones: list["ProjectMilestone"] = Relationship(back_populates="project")
 ```
 
-Calling `Patch[Project](...)` before resolving `"ProjectMilestone"` will raise
+Calling `Patch[Project](...)` works when the referenced sibling models have
+already been imported somewhere in the same package/module tree. If the
+referenced model has not been imported yet, import your model package first or
+bind the missing reference manually.
+
+For genuinely missing types, `pydantic-patch` still raises
 `ForwardReferencesNotSupported`.
 
-To fix this, import all related model modules first, bind the missing shallow
-references onto each module, then call `model_rebuild(force=True)` before
-creating the patch model.
+Manual fallback:
 
 ```python
 import my_app.models.project as project_module

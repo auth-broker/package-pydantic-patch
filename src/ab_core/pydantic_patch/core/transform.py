@@ -3,7 +3,7 @@
 from collections.abc import Callable, Mapping
 from functools import reduce
 from operator import or_
-from typing import Annotated, Protocol, Self, TypeVar, get_args, get_origin
+from typing import Annotated, ForwardRef, Protocol, Self, TypeVar, get_args, get_origin
 
 from pydantic import BaseModel
 
@@ -49,6 +49,9 @@ type DiscriminatorChildConfigPreparer[ConfigT: TransformConfig] = Callable[
 ]
 
 _TRANSFORM_MODEL_CACHE: dict[OperationCacheKey, type[BaseModel]] = {}
+_TRANSFORM_BUILD_STACK: list[tuple[type[BaseModel], OperationName, str, str | None]] = []
+_TRANSFORM_BUILD_NAMESPACE: dict[str, type[BaseModel]] = {}
+_TRANSFORM_BUILD_CREATED_MODELS: list[type[BaseModel]] = []
 
 
 def prepare_discriminator_child_config_default[ConfigT: TransformConfig](
@@ -79,6 +82,32 @@ def default_model_name(source_model: type[BaseModel], suffix: str) -> str:
     return f"{source_model.__name__}{suffix}"
 
 
+def transformed_model_name(source_model: type[BaseModel], suffix: str, name: str | None) -> str:
+    """Return the concrete transformed model name."""
+    return name or default_model_name(source_model, suffix)
+
+
+def transform_build_key(
+    source_model: type[BaseModel],
+    operation: OperationName,
+    suffix: str,
+    name: str | None,
+) -> tuple[type[BaseModel], OperationName, str, str | None]:
+    """Return the key used to identify an in-progress transformed model."""
+    return (source_model, operation, suffix, name)
+
+
+def rebuild_created_models() -> None:
+    """Resolve generated-model forward references created during recursion."""
+    if not _TRANSFORM_BUILD_NAMESPACE:
+        return
+
+    type_namespace = dict(_TRANSFORM_BUILD_NAMESPACE)
+
+    for model in _TRANSFORM_BUILD_CREATED_MODELS:
+        model.model_rebuild(force=True, _types_namespace=type_namespace)
+
+
 def build_transformed_model(
     source_model: type[BaseModel],
     *,
@@ -92,28 +121,46 @@ def build_transformed_model(
     use_cache: bool,
 ) -> type[BaseModel]:
     """Build a transformed model and recursively transform nested annotations."""
-    assert_no_forward_refs(source_model)
+    build_key = transform_build_key(source_model, operation, suffix, name)
+    is_root_build = not _TRANSFORM_BUILD_STACK
+    _TRANSFORM_BUILD_STACK.append(build_key)
 
-    payload = build_payload_from_model(source_model)
-    payload = mutate_payload(payload, source_model, config)
+    try:
+        assert_no_forward_refs(source_model)
 
-    payload = transform_payload_annotations(
-        payload,
-        config=config,
-        operation=operation,
-        suffix=suffix,
-        mutate_payload=mutate_payload,
-        make_cache_key=make_cache_key,
-        prepare_discriminator_child_config=prepare_discriminator_child_config,
-        use_cache=use_cache,
-    )
+        payload = build_payload_from_model(source_model)
+        payload = mutate_payload(payload, source_model, config)
 
-    model_name = name or default_model_name(source_model, suffix)
-    return create_model_from_payload(
-        source_model=source_model,
-        payload=payload,
-        name=model_name,
-    )
+        payload = transform_payload_annotations(
+            payload,
+            config=config,
+            operation=operation,
+            suffix=suffix,
+            mutate_payload=mutate_payload,
+            make_cache_key=make_cache_key,
+            prepare_discriminator_child_config=prepare_discriminator_child_config,
+            use_cache=use_cache,
+        )
+
+        model_name = transformed_model_name(source_model, suffix, name)
+        transformed_model = create_model_from_payload(
+            source_model=source_model,
+            payload=payload,
+            name=model_name,
+        )
+        _TRANSFORM_BUILD_NAMESPACE[model_name] = transformed_model
+        _TRANSFORM_BUILD_CREATED_MODELS.append(transformed_model)
+
+        return transformed_model
+    finally:
+        _TRANSFORM_BUILD_STACK.pop()
+
+        if is_root_build:
+            try:
+                rebuild_created_models()
+            finally:
+                _TRANSFORM_BUILD_NAMESPACE.clear()
+                _TRANSFORM_BUILD_CREATED_MODELS.clear()
 
 
 def transform_model_cached(
@@ -164,6 +211,11 @@ def transform_model(
     use_cache: bool = True,
 ) -> type[BaseModel]:
     """Transform a model according to an operation configuration."""
+    build_key = transform_build_key(source_model, operation, suffix, name)
+
+    if build_key in _TRANSFORM_BUILD_STACK:
+        return ForwardRef(transformed_model_name(source_model, suffix, name))
+
     if use_cache:
         return transform_model_cached(
             source_model,

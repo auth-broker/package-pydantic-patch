@@ -1,4 +1,4 @@
-"""Helpers for detecting and reporting unresolved forward references."""
+"""Helpers for detecting and resolving forward references."""
 
 import sys
 from textwrap import dedent, indent
@@ -52,6 +52,43 @@ def _iter_model_modules(root_model: type[BaseModel]) -> list[str]:
     return sorted(module_name for module_name in module_names if _iter_models_in_module(module_name))
 
 
+def build_model_namespace(root_model: type[BaseModel]) -> dict[str, type[BaseModel]]:
+    """Build a temporary namespace of imported sibling BaseModel classes.
+
+    This is used to resolve string / ForwardRef annotations without requiring
+    developers to manually bind circular model references onto their modules.
+    """
+    return {
+        model.__name__: model
+        for module_name in _iter_model_modules(root_model)
+        for model in _iter_models_in_module(module_name)
+    }
+
+
+def build_type_hints_namespaces(
+    model: type[BaseModel],
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Return globalns/localns for resolving a model's annotations."""
+    module = sys.modules.get(model.__module__)
+    module_globals: dict[str, object] = {}
+
+    if module is not None:
+        module_globals.update(vars(module))
+
+    model_namespace = build_model_namespace(model)
+
+    globalns = {
+        **module_globals,
+        **model_namespace,
+    }
+    localns = {
+        **model_namespace,
+        model.__name__: model,
+    }
+
+    return globalns, localns
+
+
 def unresolved_annotation_names(model: type[BaseModel]) -> list[str]:
     """Collect unresolved forward-reference annotation names for model modules."""
     unresolved: list[str] = []
@@ -91,9 +128,7 @@ def _forward_ref_name(annotation: object) -> str | None:
 
 def _build_resolution_example(root_model: type[BaseModel]) -> str:
     module_names = _iter_model_modules(root_model)
-    models_by_name = {
-        model.__name__: model for module_name in module_names for model in _iter_models_in_module(module_name)
-    }
+    models_by_name = build_model_namespace(root_model)
 
     imports = [f"import {module_name} as {_module_alias(module_name)}" for module_name in module_names]
 
@@ -143,30 +178,25 @@ def build_forward_ref_error_message(
 
     return dedent(
         f"""
-        Forward references are not supported by pydantic-patch until they are resolved.
+        Forward references could not be resolved automatically.
 
-        pydantic-patch is type-driven and needs real Python types when generating
-        Pick/Omit/Partial/Required/Patch models. The model {model.__name__!r} has
-        unresolved forward-reference annotation(s): {sorted(set(unresolved_fields))!r}.
+        pydantic-patch tried to resolve imported sibling BaseModel / SQLModel
+        classes before generating Pick/Omit/Partial/Required/Patch models, but
+        the model {model.__name__!r} still has unresolved forward-reference
+        annotation(s): {sorted(set(unresolved_fields))!r}.
 
-        This usually happens with SQLModel relationships split across modules, where
-        relationship attributes are declared with strings to avoid circular imports.
+        This usually means the referenced model has not been imported anywhere
+        reachable from the root model's package, or the annotation points to a
+        genuinely missing type.
 
         See the resolved SQLModel example here:
         {RESOLVED_EXAMPLE_URL}
 
-        Import every related ORM module first, bind the shallow circular references
-        onto their source modules, then rebuild every affected model before calling
-        Patch[...], Pick[...], Omit[...], Partial[...] or Required[...].
-
-        Suggested fix:
+        Suggested manual fallback:
 
         ```python
 {resolution_example}
         ```
 
-        This setup usually belongs in your models package __init__.py, or in another
-        central models module that imports and prepares all ORM models before patch
-        schemas are generated.
         """
     ).strip()

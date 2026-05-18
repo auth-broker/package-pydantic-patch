@@ -8,7 +8,10 @@ from typing import cast, get_type_hints
 from pydantic import BaseModel, Field
 from pydantic.fields import ComputedFieldInfo, FieldInfo, PydanticUndefined
 
-from ab_core.pydantic_patch.core.forward_references import contains_forward_ref
+from ab_core.pydantic_patch.core.forward_references import (
+    build_type_hints_namespaces,
+    contains_forward_ref,
+)
 from ab_core.pydantic_patch.core.payload_types import CreateModelPayload
 from ab_core.pydantic_patch.core.types import Any
 
@@ -51,6 +54,7 @@ def get_raw_computed_field_return_annotation(
 
 
 def get_resolved_computed_field_return_annotation(
+    model: type[BaseModel],
     computed_field_info: ComputedFieldInfo,
 ) -> Any:
     """Return the resolved computed-field return annotation for payload generation."""
@@ -58,23 +62,42 @@ def get_resolved_computed_field_return_annotation(
         return computed_field_info.return_type
 
     getter = get_computed_field_getter(computed_field_info)
-    resolved_annotations = get_type_hints(getter, include_extras=True)
+    globalns, localns = build_type_hints_namespaces(model)
+
+    resolved_annotations = get_type_hints(
+        getter,
+        globalns=globalns,
+        localns=localns,
+        include_extras=True,
+    )
 
     return resolved_annotations.get("return", Any)
 
 
 def get_computed_field_return_annotation(
+    model: type[BaseModel],
     computed_field_info: ComputedFieldInfo,
 ) -> Any:
     """Return the computed-field return annotation."""
-    return get_resolved_computed_field_return_annotation(computed_field_info)
+    return get_resolved_computed_field_return_annotation(model, computed_field_info)
 
 
 def computed_field_contains_forward_ref(
+    model: type[BaseModel],
     computed_field_info: ComputedFieldInfo,
 ) -> bool:
     """Return whether a computed field has an unresolved return annotation."""
-    return contains_forward_ref(get_raw_computed_field_return_annotation(computed_field_info))
+    raw_annotation = get_raw_computed_field_return_annotation(computed_field_info)
+
+    if not contains_forward_ref(raw_annotation):
+        return False
+
+    try:
+        get_resolved_computed_field_return_annotation(model, computed_field_info)
+    except NameError:
+        return True
+
+    return False
 
 
 def create_computed_field_info(
@@ -104,6 +127,6 @@ def apply_computed_fields_to_payload(
             continue
 
         payload[field_name] = (
-            get_resolved_computed_field_return_annotation(computed_field_info),
+            get_resolved_computed_field_return_annotation(model, computed_field_info),
             create_computed_field_info(computed_field_info),
         )

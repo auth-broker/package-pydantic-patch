@@ -37,10 +37,6 @@ class Quote(BaseModel):
     line_items: list[LineItemComparison] = Field(default_factory=list)
 
 
-for model in (QuoteLineItem, LineItemComparison, Quote):
-    model.model_rebuild(force=True)
-
-
 @pytest.mark.unit
 @pytest.mark.local
 def test_patch_supports_recursive_quote_line_item_children():
@@ -230,8 +226,6 @@ def test_patch_supports_direct_recursive_root_model_with_custom_name_and_cache()
         line_item_name: str = ""
         quoted_base_cost: float = 0.0
         children: list[QuoteLineItem] = Field(default_factory=list)
-
-    QuoteLineItem.model_rebuild(force=True)
 
     quote_line_item_patch = Patch[QuoteLineItem](
         name="QuoteLineItemUpdate",

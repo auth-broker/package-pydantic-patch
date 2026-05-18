@@ -67,6 +67,18 @@ def test_unresolved_pydantic_forward_refs_raise_custom_error(operation):
         operation()
 
 
+def test_unresolved_forward_ref_error_does_not_suggest_manual_module_binding() -> None:
+    with pytest.raises(ForwardReferencesNotSupported) as error:
+        Patch[PatchForwardPydanticParent](pick={"id", "child"}, partial={"child"})
+
+    message = str(error.value)
+
+    assert "model_rebuild(force=True)" not in message
+    assert "_module." not in message
+    assert "ty: ignore[unresolved-attribute]" not in message
+    assert "import the model package" in message
+
+
 @pytest.mark.parametrize(
     "operation",
     [

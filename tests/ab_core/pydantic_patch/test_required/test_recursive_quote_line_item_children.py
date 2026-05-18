@@ -37,10 +37,6 @@ class Quote(BaseModel):
     line_items: list[LineItemComparison] = Field(default_factory=list)
 
 
-for model in (QuoteLineItem, LineItemComparison, Quote):
-    model.model_rebuild(force=True)
-
-
 @pytest.mark.unit
 @pytest.mark.local
 def test_required_supports_recursive_quote_line_item_children():

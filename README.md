@@ -723,40 +723,32 @@ class Project(SQLModel, table=True):
 ```
 
 Calling `Patch[Project](...)` works when the referenced sibling models have
-already been imported somewhere in the same package/module tree. If the
-referenced model has not been imported yet, import your model package first or
-bind the missing reference manually.
+already been imported somewhere in the same package/module tree.
 
-For genuinely missing types, `pydantic-patch` still raises
-`ForwardReferencesNotSupported`.
-
-Manual fallback:
+The recommended pattern is to expose related models from your models package:
 
 ```python
-import my_app.models.project as project_module
-import my_app.models.project_milestone as milestone_module
-import my_app.models.project_task as task_module
-import my_app.models.task_comment as comment_module
+# my_app/models/__init__.py
 
-from my_app.models import Project, ProjectMilestone, ProjectTask, TaskComment
+from my_app.models.project import Project
+from my_app.models.project_milestone import ProjectMilestone
+from my_app.models.project_task import ProjectTask
+from my_app.models.task_comment import TaskComment
 
-project_module.ProjectMilestone = ProjectMilestone
-
-milestone_module.Project = Project
-milestone_module.ProjectTask = ProjectTask
-
-task_module.ProjectMilestone = ProjectMilestone
-task_module.TaskComment = TaskComment
-
-comment_module.ProjectTask = ProjectTask
-
-for model in (TaskComment, ProjectTask, ProjectMilestone, Project):
-    model.model_rebuild(force=True)
+__all__ = [
+    "Project",
+    "ProjectMilestone",
+    "ProjectTask",
+    "TaskComment",
+]
 ```
 
-Only create the patch schema after this setup:
+Then import from that package before creating patch schemas:
 
 ```python
+from my_app.models import Project, ProjectMilestone, ProjectTask, TaskComment
+from ab_core.pydantic_patch.patch import Patch, PatchConfig
+
 ProjectPatch = Patch[Project](
     pick={"id", "name", "milestones"},
     required={"id"},
@@ -774,9 +766,9 @@ ProjectPatch = Patch[Project](
 )
 ```
 
-In a real application, this setup usually belongs in your models package
-`__init__.py`, or in a central module that imports and prepares all ORM models
-before any patch schemas are generated.
+If the referenced model has not been imported, or the annotation points to a
+genuinely missing type, `pydantic-patch` raises
+`ForwardReferencesNotSupported`.
 
 For SQLModel relationship annotations, prefer SQLAlchemy-compatible relationship
 strings such as:
@@ -867,7 +859,6 @@ class QuoteLineItem(SQLModel, table=True):
     children: list["QuoteLineItem"] = Relationship(back_populates="parent")
 
 
-QuoteLineItem.model_rebuild(force=True)
 ```
 
 For SQLModel relationships, keep the relationship target annotation as

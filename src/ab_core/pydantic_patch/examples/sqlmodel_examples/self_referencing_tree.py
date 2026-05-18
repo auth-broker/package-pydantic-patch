@@ -21,9 +21,6 @@ os.environ.setdefault("DATABASE_SQL_ALCHEMY_URL", "sqlite:///./self_referencing_
 ENTITY_ID = 1
 
 
-QuoteLineItem.model_rebuild(force=True)
-
-
 QuoteLineItemPatch = Patch[QuoteLineItem](
     name="QuoteLineItemPatch",
     pick={

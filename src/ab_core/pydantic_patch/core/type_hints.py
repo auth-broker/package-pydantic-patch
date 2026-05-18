@@ -9,13 +9,23 @@ from .computed_field_type_hints import (
     iter_computed_field_infos,
 )
 from .errors import ForwardReferencesNotSupported
-from .forward_references import build_forward_ref_error_message
+from .forward_references import (
+    build_forward_ref_error_message,
+    build_type_hints_namespaces,
+)
 
 
 def get_resolved_type_hints(model: type[BaseModel]) -> dict[str, object]:
-    """Resolve model type hints and raise custom errors on unresolved refs."""
+    """Resolve model type hints and raise custom errors on truly unresolved refs."""
+    globalns, localns = build_type_hints_namespaces(model)
+
     try:
-        return get_type_hints(model, include_extras=True)
+        return get_type_hints(
+            model,
+            globalns=globalns,
+            localns=localns,
+            include_extras=True,
+        )
     except NameError as error:
         raise ForwardReferencesNotSupported(
             build_forward_ref_error_message(
@@ -30,7 +40,7 @@ def unresolved_computed_field_names(model: type[BaseModel]) -> list[str]:
     return sorted(
         field_name
         for field_name, computed_field_info in iter_computed_field_infos(model)
-        if computed_field_contains_forward_ref(computed_field_info)
+        if computed_field_contains_forward_ref(model, computed_field_info)
     )
 
 

@@ -94,3 +94,60 @@ def test_omit_supports_recursive_quote_line_item_children():
     assert "internal_notes" not in dumped["line_items"][0]["quote_line_item"]["children"][0]
     assert dumped["line_items"][0]["quote_line_item"]["children"][0]["line_item_name"] == ("Colorbond panels")
     assert dumped["line_items"][0]["quote_line_item"]["children"][1]["quoted_base_cost"] == 500.0
+
+
+@pytest.mark.unit
+@pytest.mark.local
+def test_omit_supports_recursive_quote_line_item_grandchildren():
+    quote_omit = Omit[Quote](
+        fields={"title"},
+        child_models={
+            LineItemComparison: OmitConfig(
+                fields={"comparison_notes"},
+            ),
+            QuoteLineItem: OmitConfig(
+                fields={"internal_notes"},
+            ),
+        },
+    )
+
+    omitted = quote_omit.model_validate(
+        {
+            "id": str(uuid4()),
+            "title": "should be rejected by root omit",
+            "line_items": [
+                {
+                    "id": str(uuid4()),
+                    "comparison_notes": "should be rejected by child omit",
+                    "quote_line_item": {
+                        "line_item_name": "Fence",
+                        "quoted_base_cost": 1200.0,
+                        "internal_notes": "should be rejected at root child",
+                        "children": [
+                            {
+                                "line_item_name": "Panels",
+                                "quoted_base_cost": 700.0,
+                                "internal_notes": "should be rejected at child",
+                                "children": [
+                                    {
+                                        "line_item_name": "Panel fixings",
+                                        "quoted_base_cost": 100.0,
+                                        "internal_notes": "should be rejected at grandchild",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                }
+            ],
+        }
+    )
+
+    dumped = omitted.model_dump(exclude_none=False)
+    grandchild = dumped["line_items"][0]["quote_line_item"]["children"][0]["children"][0]
+
+    assert "title" not in dumped
+    assert "comparison_notes" not in dumped["line_items"][0]
+    assert grandchild["line_item_name"] == "Panel fixings"
+    assert grandchild["quoted_base_cost"] == 100.0
+    assert "internal_notes" not in grandchild

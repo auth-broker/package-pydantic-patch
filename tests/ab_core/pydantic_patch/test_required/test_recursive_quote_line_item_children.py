@@ -110,3 +110,82 @@ def test_required_supports_recursive_quote_line_item_children():
                 ],
             }
         )
+
+
+@pytest.mark.unit
+@pytest.mark.local
+def test_required_supports_recursive_quote_line_item_grandchildren():
+    quote_required = Required[Quote](
+        fields={"line_items"},
+        child_models={
+            LineItemComparison: RequiredConfig(
+                fields={"id", "quote_line_item"},
+            ),
+            QuoteLineItem: RequiredConfig(
+                fields={"line_item_name", "quoted_base_cost"},
+            ),
+        },
+    )
+
+    required = quote_required.model_validate(
+        {
+            "id": str(uuid4()),
+            "title": "Fence quote",
+            "line_items": [
+                {
+                    "id": str(uuid4()),
+                    "quote_line_item": {
+                        "line_item_name": "Fence",
+                        "quoted_base_cost": 1200.0,
+                        "children": [
+                            {
+                                "line_item_name": "Panels",
+                                "quoted_base_cost": 700.0,
+                                "children": [
+                                    {
+                                        "line_item_name": "Panel fixings",
+                                        "quoted_base_cost": 100.0,
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                }
+            ],
+        }
+    )
+
+    dumped = required.model_dump(exclude_none=False)
+    grandchild = dumped["line_items"][0]["quote_line_item"]["children"][0]["children"][0]
+
+    assert grandchild["line_item_name"] == "Panel fixings"
+    assert grandchild["quoted_base_cost"] == 100.0
+
+    with pytest.raises(ValidationError):
+        quote_required.model_validate(
+            {
+                "id": str(uuid4()),
+                "title": "Fence quote",
+                "line_items": [
+                    {
+                        "id": str(uuid4()),
+                        "quote_line_item": {
+                            "line_item_name": "Fence",
+                            "quoted_base_cost": 1200.0,
+                            "children": [
+                                {
+                                    "line_item_name": "Panels",
+                                    "quoted_base_cost": 700.0,
+                                    "children": [
+                                        {
+                                            "line_item_name": "Panel fixings",
+                                            # quoted_base_cost is required on grandchildren too.
+                                        }
+                                    ],
+                                }
+                            ],
+                        },
+                    }
+                ],
+            }
+        )

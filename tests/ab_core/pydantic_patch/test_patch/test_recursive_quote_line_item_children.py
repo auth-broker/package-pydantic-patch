@@ -166,3 +166,55 @@ def test_patch_supports_recursive_quote_line_item_children_with_combined_operati
                 "line_items": [],
             }
         )
+
+
+@pytest.mark.unit
+@pytest.mark.local
+def test_patch_supports_recursive_quote_line_item_grandchildren():
+    quote_patch = Patch[Quote](
+        pick={"line_items"},
+        child_models={
+            LineItemComparison: PatchConfig(
+                pick={"quote_line_item"},
+            ),
+            QuoteLineItem: PatchConfig(
+                pick={
+                    "line_item_name",
+                    "quoted_base_cost",
+                    "children",
+                },
+            ),
+        },
+        use_cache=False,
+    )
+
+    patch = quote_patch.model_validate(
+        {
+            "line_items": [
+                {
+                    "quote_line_item": {
+                        "line_item_name": "Fence",
+                        "quoted_base_cost": 1200.0,
+                        "children": [
+                            {
+                                "line_item_name": "Panels",
+                                "quoted_base_cost": 700.0,
+                                "children": [
+                                    {
+                                        "line_item_name": "Panel fixings",
+                                        "quoted_base_cost": 100.0,
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                }
+            ]
+        }
+    )
+
+    dumped = patch.model_dump(exclude_none=False)
+    grandchild = dumped["line_items"][0]["quote_line_item"]["children"][0]["children"][0]
+
+    assert grandchild["line_item_name"] == "Panel fixings"
+    assert grandchild["quoted_base_cost"] == 100.0

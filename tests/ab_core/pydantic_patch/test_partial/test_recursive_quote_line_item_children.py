@@ -87,3 +87,51 @@ def test_partial_supports_recursive_quote_line_item_children():
     assert dumped["line_items"][0]["quote_line_item"]["children"][0]["quoted_base_cost"] is None
     assert dumped["line_items"][0]["quote_line_item"]["children"][1]["line_item_name"] is None
     assert dumped["line_items"][0]["quote_line_item"]["children"][1]["quoted_base_cost"] == 500.0
+
+
+@pytest.mark.unit
+@pytest.mark.local
+def test_partial_supports_recursive_quote_line_item_grandchildren():
+    quote_partial = Partial[Quote](
+        fields={"line_items"},
+        child_models={
+            LineItemComparison: PartialConfig(
+                fields={"quote_line_item"},
+            ),
+            QuoteLineItem: PartialConfig(
+                fields={
+                    "id",
+                    "parent_id",
+                    "line_item_name",
+                    "quoted_base_cost",
+                    "children",
+                },
+            ),
+        },
+    )
+
+    partial = quote_partial.model_validate(
+        {
+            "line_items": [
+                {
+                    "quote_line_item": {
+                        "children": [
+                            {
+                                "children": [
+                                    {
+                                        "line_item_name": "Panel fixings",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                }
+            ]
+        }
+    )
+
+    dumped = partial.model_dump(exclude_none=False)
+    grandchild = dumped["line_items"][0]["quote_line_item"]["children"][0]["children"][0]
+
+    assert grandchild["line_item_name"] == "Panel fixings"
+    assert grandchild["quoted_base_cost"] is None

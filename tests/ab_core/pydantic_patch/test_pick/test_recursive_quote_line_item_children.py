@@ -96,3 +96,58 @@ def test_pick_supports_recursive_quote_line_item_children():
     assert "internal_notes" not in dumped["line_items"][0]["quote_line_item"]
     assert dumped["line_items"][0]["quote_line_item"]["children"][0]["line_item_name"] == ("Colorbond panels")
     assert dumped["line_items"][0]["quote_line_item"]["children"][1]["quoted_base_cost"] == 500.0
+
+
+@pytest.mark.unit
+@pytest.mark.local
+def test_pick_supports_recursive_quote_line_item_grandchildren():
+    quote_pick = Pick[Quote](
+        fields={"line_items"},
+        child_models={
+            LineItemComparison: PickConfig(
+                fields={"quote_line_item"},
+            ),
+            QuoteLineItem: PickConfig(
+                fields={
+                    "line_item_name",
+                    "quoted_base_cost",
+                    "children",
+                },
+            ),
+        },
+    )
+
+    picked = quote_pick.model_validate(
+        {
+            "line_items": [
+                {
+                    "quote_line_item": {
+                        "line_item_name": "Fence",
+                        "quoted_base_cost": 1200.0,
+                        "internal_notes": "should be rejected at root child",
+                        "children": [
+                            {
+                                "line_item_name": "Panels",
+                                "quoted_base_cost": 700.0,
+                                "internal_notes": "should be rejected at child",
+                                "children": [
+                                    {
+                                        "line_item_name": "Panel fixings",
+                                        "quoted_base_cost": 100.0,
+                                        "internal_notes": "should be rejected at grandchild",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                }
+            ]
+        }
+    )
+
+    dumped = picked.model_dump(exclude_none=False)
+    grandchild = dumped["line_items"][0]["quote_line_item"]["children"][0]["children"][0]
+
+    assert grandchild["line_item_name"] == "Panel fixings"
+    assert grandchild["quoted_base_cost"] == 100.0
+    assert "internal_notes" not in grandchild

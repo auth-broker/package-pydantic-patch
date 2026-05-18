@@ -9,10 +9,6 @@ from fastapi import Depends as FDepends
 from fastapi import FastAPI, HTTPException
 from sqlalchemy.orm import Session
 
-import ab_core.pydantic_patch.examples.sqlmodel_examples.models.project as project_module
-import ab_core.pydantic_patch.examples.sqlmodel_examples.models.project_milestone as milestone_module
-import ab_core.pydantic_patch.examples.sqlmodel_examples.models.project_task as task_module
-import ab_core.pydantic_patch.examples.sqlmodel_examples.models.task_comment as comment_module
 from ab_core.database.databases import Database
 from ab_core.database.session_context import db_session_sync
 from ab_core.dependency import Depends, inject
@@ -32,18 +28,11 @@ ENTITY_ID = 1
 
 
 # =========================
-# RESOLVE FORWARD REFERENCES
+# PATCH MODEL
 # =========================
-
-project_module.ProjectMilestone = ProjectMilestone  # ty:ignore[unresolved-attribute]
-milestone_module.Project = Project  # ty:ignore[unresolved-attribute]
-milestone_module.ProjectTask = ProjectTask  # ty:ignore[unresolved-attribute]
-task_module.ProjectMilestone = ProjectMilestone  # ty:ignore[unresolved-attribute]
-task_module.TaskComment = TaskComment  # ty:ignore[unresolved-attribute]
-comment_module.ProjectTask = ProjectTask  # ty:ignore[unresolved-attribute]
-
-for model in (TaskComment, ProjectTask, ProjectMilestone, Project):
-    model.model_rebuild(force=True)
+#
+# The models package imports all related SQLModel classes, so pydantic-patch can
+# resolve string forward references automatically when building this patch model.
 
 ProjectPatch = Patch[Project](
     pick={"name", "milestones"},

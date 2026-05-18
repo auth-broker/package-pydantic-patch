@@ -5,8 +5,9 @@ from __future__ import annotations
 from uuid import UUID, uuid4
 
 import pytest
-from ab_core.pydantic_patch.patch import Patch, PatchConfig
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+from ab_core.pydantic_patch.patch import Patch, PatchConfig
 
 
 class QuoteLineItem(BaseModel):
@@ -17,7 +18,7 @@ class QuoteLineItem(BaseModel):
     line_item_name: str = ""
     quoted_base_cost: float = 0.0
     internal_notes: str = ""
-    children: list["QuoteLineItem"] = Field(default_factory=list)
+    children: list[QuoteLineItem] = Field(default_factory=list)
 
 
 class LineItemComparison(BaseModel):
@@ -88,9 +89,7 @@ def test_patch_supports_recursive_quote_line_item_children():
 
     dumped = patch.model_dump(exclude_none=False)
 
-    assert dumped["line_items"][0]["quote_line_item"]["children"][0]["line_item_name"] == (
-        "Colorbond panels"
-    )
+    assert dumped["line_items"][0]["quote_line_item"]["children"][0]["line_item_name"] == ("Colorbond panels")
     assert dumped["line_items"][0]["quote_line_item"]["children"][1]["quoted_base_cost"] == 500.0
 
 
@@ -155,9 +154,7 @@ def test_patch_supports_recursive_quote_line_item_children_with_combined_operati
 
     assert dumped["id"] == quote_id
     assert dumped["line_items"][0]["id"] == comparison_id
-    assert dumped["line_items"][0]["quote_line_item"]["children"][0]["line_item_name"] == (
-        "Colorbond panels"
-    )
+    assert dumped["line_items"][0]["quote_line_item"]["children"][0]["line_item_name"] == ("Colorbond panels")
     assert dumped["line_items"][0]["quote_line_item"]["children"][0]["quoted_base_cost"] is None
     assert dumped["line_items"][0]["quote_line_item"]["children"][1]["line_item_name"] is None
     assert dumped["line_items"][0]["quote_line_item"]["children"][1]["quoted_base_cost"] == 500.0

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import pytest
-from ab_core.pydantic_patch.partial import Partial, PartialConfig
 from pydantic import BaseModel, ConfigDict, Field
+
+from ab_core.pydantic_patch.partial import Partial, PartialConfig
 
 
 class QuoteLineItem(BaseModel):
@@ -17,7 +18,7 @@ class QuoteLineItem(BaseModel):
     line_item_name: str = ""
     quoted_base_cost: float = 0.0
     internal_notes: str = ""
-    children: list["QuoteLineItem"] = Field(default_factory=list)
+    children: list[QuoteLineItem] = Field(default_factory=list)
 
 
 class LineItemComparison(BaseModel):
@@ -82,9 +83,7 @@ def test_partial_supports_recursive_quote_line_item_children():
 
     dumped = partial.model_dump(exclude_none=False)
 
-    assert dumped["line_items"][0]["quote_line_item"]["children"][0]["line_item_name"] == (
-        "Colorbond panels"
-    )
+    assert dumped["line_items"][0]["quote_line_item"]["children"][0]["line_item_name"] == ("Colorbond panels")
     assert dumped["line_items"][0]["quote_line_item"]["children"][0]["quoted_base_cost"] is None
     assert dumped["line_items"][0]["quote_line_item"]["children"][1]["line_item_name"] is None
     assert dumped["line_items"][0]["quote_line_item"]["children"][1]["quoted_base_cost"] == 500.0

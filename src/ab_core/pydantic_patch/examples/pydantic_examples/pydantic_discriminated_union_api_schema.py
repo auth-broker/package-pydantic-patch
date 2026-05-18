@@ -1,5 +1,4 @@
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException
@@ -57,6 +56,22 @@ HouseholdPatch = Patch[Household](
     },
 )
 
+HouseholdResponse = Patch[Household](
+    name="HouseholdResponse",
+    pick={"id", "owner_name", "pets"},
+    required={"id"},
+    child_models={
+        Cat: PatchConfig(
+            pick={"kind", "id", "name", "lives"},
+            required={"kind", "id"},
+        ),
+        Dog: PatchConfig(
+            pick={"kind", "id", "name", "bark_volume"},
+            required={"kind", "id"},
+        ),
+    },
+)
+
 
 # =========================
 # FAKE STORE
@@ -93,7 +108,7 @@ app = FastAPI(lifespan=lifespan)
 # =========================
 
 
-@app.get("/households", response_model=Household)
+@app.get("/households", response_model=HouseholdResponse)
 def get_household() -> Household:
     household = HOUSEHOLDS.get(ENTITY_ID)
     if household is None:
@@ -102,7 +117,7 @@ def get_household() -> Household:
     return household
 
 
-@app.patch("/households", response_model=Household)
+@app.patch("/households", response_model=HouseholdResponse)
 def patch_household(
     patch: HouseholdPatch,
 ) -> Household:
@@ -120,21 +135,12 @@ def patch_household(
 # =========================
 
 
-def get_module_path(file_path: str) -> str:
-    parts = Path(file_path).resolve().with_suffix("").relative_to(Path.cwd()).parts
-
-    if parts[0] == "src":
-        parts = parts[1:]
-
-    return ".".join(parts)
-
-
 if __name__ == "__main__":
     import uvicorn
 
     # http://localhost:8000/docs#/default/patch_household_households__household_id__patch
     uvicorn.run(
-        f"{get_module_path(__file__)}:app",
+        app,
         host="0.0.0.0",
         port=8000,
         reload=False,

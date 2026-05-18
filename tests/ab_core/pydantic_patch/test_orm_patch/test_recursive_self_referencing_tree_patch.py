@@ -36,9 +36,6 @@ class QuoteLineItem(TreeSQLModel, table=True):
     children: list["QuoteLineItem"] = Relationship(back_populates="parent")
 
 
-QuoteLineItem.model_rebuild(force=True)
-
-
 def test_recursive_patch_orm_scalar_updates_self_referencing_tree_children() -> None:
     line_item_patch = Patch[QuoteLineItem](
         name="QuoteLineItemPatch",

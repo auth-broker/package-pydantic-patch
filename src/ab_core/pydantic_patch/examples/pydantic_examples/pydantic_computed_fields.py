@@ -1,7 +1,6 @@
 """Pydantic computed-field patch example."""
 
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, computed_field
@@ -55,6 +54,21 @@ UserPatch = Patch[User](
     },
 )
 
+UserResponse = Patch[User](
+    name="UserResponse",
+    pick={
+        "id",
+        "first_name",
+        "last_name",
+        "age",
+        "full_name",
+        "is_adult",
+    },
+    required={
+        "id",
+    },
+)
+
 
 # =========================
 # STORE
@@ -89,7 +103,7 @@ app = FastAPI(lifespan=lifespan)
 # =========================
 
 
-@app.get("/users/{user_id}", response_model=User)
+@app.get("/users/{user_id}", response_model=UserResponse)
 def get_user(user_id: int) -> User:
     user = USERS.get(user_id)
 
@@ -99,7 +113,7 @@ def get_user(user_id: int) -> User:
     return user
 
 
-@app.patch("/users/{user_id}", response_model=User)
+@app.patch("/users/{user_id}", response_model=UserResponse)
 def patch_user(
     user_id: int,
     patch: UserPatch,
@@ -119,20 +133,11 @@ def patch_user(
 # =========================
 
 
-def get_module_path(file_path: str) -> str:
-    parts = Path(file_path).resolve().with_suffix("").relative_to(Path.cwd()).parts
-
-    if parts[0] == "src":
-        parts = parts[1:]
-
-    return ".".join(parts)
-
-
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        f"{get_module_path(__file__)}:app",
+        app,
         host="0.0.0.0",
         port=8000,
         reload=False,

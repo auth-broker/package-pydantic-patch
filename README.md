@@ -834,6 +834,125 @@ db_session.commit()
 This is especially useful for FastAPI PATCH endpoints backed by SQLModel
 relationships.
 
+### Self-referencing 1..many trees
+
+`pydantic-patch` supports recursive parent/child tree layouts where a model
+contains a list of children of the same model type.
+
+This is useful for quote line items, category trees, bill-of-materials trees,
+nested tasks, comments, folders, and other hierarchical data.
+
+#### Python
+
+```python
+from sqlmodel import Field, Relationship, SQLModel
+
+from ab_core.pydantic_patch.orm_patch import recursive_patch_orm_scalar
+from ab_core.pydantic_patch.patch import Patch, PatchConfig
+
+
+class QuoteLineItem(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    parent_id: int | None = Field(default=None, foreign_key="quote_line_item.id")
+
+    line_item_name: str = ""
+    quoted_base_cost: float = 0.0
+
+    parent: "QuoteLineItem" = Relationship(
+        back_populates="children",
+        sa_relationship_kwargs={
+            "remote_side": "QuoteLineItem.id",
+        },
+    )
+    children: list["QuoteLineItem"] = Relationship(back_populates="parent")
+
+
+QuoteLineItem.model_rebuild(force=True)
+```
+
+For SQLModel relationships, keep the relationship target annotation as
+`"QuoteLineItem"` rather than `"QuoteLineItem | None"` so SQLAlchemy can resolve
+the mapped class name.
+
+#### Transform
+
+```python
+QuoteLineItemPatch = Patch[QuoteLineItem](
+    name="QuoteLineItemPatch",
+    pick={
+        "id",
+        "line_item_name",
+        "quoted_base_cost",
+        "children",
+    },
+    partial={
+        "id",
+        "line_item_name",
+        "quoted_base_cost",
+        "children",
+    },
+    child_models={
+        QuoteLineItem: PatchConfig(
+            pick={
+                "id",
+                "line_item_name",
+                "quoted_base_cost",
+                "children",
+            },
+            partial={
+                "id",
+                "line_item_name",
+                "quoted_base_cost",
+                "children",
+            },
+        ),
+    },
+)
+```
+
+#### Apply to an ORM object graph
+
+```python
+line_item = db_session.get(QuoteLineItem, line_item_id)
+
+patch = QuoteLineItemPatch.model_validate(
+    {
+        "id": line_item_id,
+        "line_item_name": "Colorbond fence",
+        "children": [
+            {
+                "id": 10,
+                "line_item_name": "Colorbond panels",
+                "quoted_base_cost": 725.0,
+            },
+            {
+                "line_item_name": "New gate allowance",
+                "quoted_base_cost": 300.0,
+            },
+        ],
+    }
+)
+
+recursive_patch_orm_scalar(line_item, patch)
+
+db_session.add(line_item)
+db_session.commit()
+```
+
+In this layout:
+
+* child rows with an `id` are patched onto matching existing ORM children
+* child rows without an `id` are treated as new children
+* omitted fields are left unchanged
+* nested `children` can recursively patch deeper descendants
+* the generated recursive patch model can be reused in FastAPI request bodies
+
+For a runnable example, see:
+
+```shell
+uv run python src/ab_core/pydantic_patch/examples/sqlmodel_examples/self_referencing_tree.py
+```
+
 ______________________________________________________________________
 
 ## Formatting and linting

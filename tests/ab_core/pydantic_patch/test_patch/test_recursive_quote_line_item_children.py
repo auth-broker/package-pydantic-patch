@@ -218,3 +218,47 @@ def test_patch_supports_recursive_quote_line_item_grandchildren():
 
     assert grandchild["line_item_name"] == "Panel fixings"
     assert grandchild["quoted_base_cost"] == 100.0
+
+
+@pytest.mark.unit
+@pytest.mark.local
+def test_patch_supports_direct_recursive_root_model_with_custom_name_and_cache():
+    class QuoteLineItem(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+
+        id: UUID | None = None
+        line_item_name: str = ""
+        quoted_base_cost: float = 0.0
+        children: list[QuoteLineItem] = Field(default_factory=list)
+
+    QuoteLineItem.model_rebuild(force=True)
+
+    quote_line_item_patch = Patch[QuoteLineItem](
+        name="QuoteLineItemUpdate",
+        pick={"id", "line_item_name", "quoted_base_cost", "children"},
+        partial={"id", "line_item_name", "quoted_base_cost", "children"},
+        child_models={
+            QuoteLineItem: PatchConfig(
+                pick={"id", "line_item_name", "quoted_base_cost", "children"},
+                partial={"id", "line_item_name", "quoted_base_cost", "children"},
+            )
+        },
+    )
+
+    patch = quote_line_item_patch.model_validate(
+        {
+            "line_item_name": "Parent fence",
+            "children": [
+                {"line_item_name": "Panels"},
+                {"quoted_base_cost": 500.0},
+            ],
+        }
+    )
+
+    dumped = patch.model_dump(exclude_none=False)
+
+    assert dumped["line_item_name"] == "Parent fence"
+    assert dumped["children"][0]["line_item_name"] == "Panels"
+    assert dumped["children"][0]["quoted_base_cost"] is None
+    assert dumped["children"][1]["line_item_name"] is None
+    assert dumped["children"][1]["quoted_base_cost"] == 500.0

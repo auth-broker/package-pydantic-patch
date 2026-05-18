@@ -97,6 +97,19 @@ def transform_build_key(
     return (source_model, operation, suffix, name)
 
 
+def find_active_build_name(
+    source_model: type[BaseModel],
+    operation: OperationName,
+    suffix: str,
+) -> str | None:
+    """Return the active generated model name for a recursive transform."""
+    for active_source_model, active_operation, active_suffix, active_name in reversed(_TRANSFORM_BUILD_STACK):
+        if active_source_model is source_model and active_operation == operation and active_suffix == suffix:
+            return transformed_model_name(active_source_model, active_suffix, active_name)
+
+    return None
+
+
 def rebuild_created_models() -> None:
     """Resolve generated-model forward references created during recursion."""
     if not _TRANSFORM_BUILD_NAMESPACE:
@@ -211,10 +224,9 @@ def transform_model(
     use_cache: bool = True,
 ) -> type[BaseModel]:
     """Transform a model according to an operation configuration."""
-    build_key = transform_build_key(source_model, operation, suffix, name)
-
-    if build_key in _TRANSFORM_BUILD_STACK:
-        return ForwardRef(transformed_model_name(source_model, suffix, name))
+    active_model_name = find_active_build_name(source_model, operation, suffix)
+    if active_model_name is not None:
+        return ForwardRef(active_model_name)
 
     if use_cache:
         return transform_model_cached(

@@ -58,6 +58,30 @@ def build_model_namespace(root_model: type[BaseModel]) -> dict[str, type[BaseMod
     }
 
 
+def build_type_hints_namespaces(
+    model: type[BaseModel],
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Return globalns/localns for resolving a model's annotations."""
+    module = sys.modules.get(model.__module__)
+    module_globals: dict[str, object] = {}
+
+    if module is not None:
+        module_globals.update(vars(module))
+
+    model_namespace = build_model_namespace(model)
+
+    globalns = {
+        **module_globals,
+        **model_namespace,
+    }
+    localns = {
+        **model_namespace,
+        model.__name__: model,
+    }
+
+    return globalns, localns
+
+
 def unresolved_annotation_names(model: type[BaseModel]) -> list[str]:
     """Collect unresolved forward-reference annotation names for model modules."""
     unresolved: list[str] = []

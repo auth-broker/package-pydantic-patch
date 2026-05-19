@@ -15,7 +15,8 @@ concurrency:
 jobs:
   lint:
     if: ${{ github.actor != 'dependabot[bot]' }}
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Default
     timeout-minutes: 5
 
     steps:
@@ -45,7 +46,8 @@ jobs:
 
   test:
     if: ${{ github.actor != 'dependabot[bot]' }}
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Default
     timeout-minutes: 5
     # Run in parallel with lint (remove this 'needs' to keep parallel; add needs: [lint] to serialize)
     steps:

@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from pydantic.fields import ComputedFieldInfo, FieldInfo, PydanticUndefined
 
 from ab_core.pydantic_patch.core.forward_references import (
-    build_model_namespace,
+    build_type_hints_namespaces,
     contains_forward_ref,
 )
 from ab_core.pydantic_patch.core.payload_types import CreateModelPayload
@@ -62,13 +62,7 @@ def get_resolved_computed_field_return_annotation(
         return computed_field_info.return_type
 
     getter = get_computed_field_getter(computed_field_info)
-
-    globalns = getattr(getter, "__globals__", {})
-    localns = {
-        **globalns,
-        **build_model_namespace(model),
-        model.__name__: model,
-    }
+    globalns, localns = build_type_hints_namespaces(model)
 
     resolved_annotations = get_type_hints(
         getter,

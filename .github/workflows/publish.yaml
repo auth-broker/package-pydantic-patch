@@ -14,8 +14,7 @@ concurrency:
 
 jobs:
   publish:
-    runs-on: 
-      group: Default
+    runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:

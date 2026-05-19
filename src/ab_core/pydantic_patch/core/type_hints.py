@@ -1,14 +1,7 @@
 """Type-hint resolution helpers for patch model generation."""
 
 import sys
-
-# src/ab_core/pydantic_patch/core/type_hints.py
-import types
-from typing import (
-    ForwardRef,
-    _eval_type,  # pyright: ignore[reportPrivateUsage]  # noqa: PLC2701
-    _strip_annotations,  # pyright: ignore[reportPrivateUsage]  # noqa: PLC2701
-)
+from typing import get_type_hints
 
 from pydantic import BaseModel
 
@@ -24,62 +17,41 @@ from .computed_field_type_hints import (
 )
 
 
+def build_augmented_class_type_hints_namespaces(
+    model: type[BaseModel],
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Build get_type_hints namespaces from Python defaults plus sibling models."""
+    module = sys.modules.get(model.__module__)
+    module_globals = dict(getattr(module, "__dict__", {}))
+    model_namespace = build_model_namespace(model)
+
+    globalns = {
+        **module_globals,
+        **model_namespace,
+    }
+    localns = {
+        **module_globals,
+        **model_namespace,
+        model.__name__: model,
+    }
+
+    return globalns, localns
+
+
 def get_augmented_class_type_hints(
     cls: type[BaseModel],
     *,
     include_extras: bool,
 ) -> dict[str, object]:
-    """Resolve class type hints using Python's default class behaviour plus sibling models.
+    """Resolve class type hints using Python defaults plus sibling models."""
+    globalns, localns = build_augmented_class_type_hints_namespaces(cls)
 
-    This intentionally mirrors the class branch of typing.get_type_hints(),
-    but extends the namespace with imported sibling BaseModel / SQLModel classes.
-    """
-    hints: dict[str, object] = {}
-    model_namespace = build_model_namespace(cls)
-
-    for base in reversed(cls.__mro__):
-        base_globals = getattr(sys.modules.get(base.__module__, None), "__dict__", {})
-        annotations = base.__dict__.get("__annotations__", {})
-
-        if isinstance(annotations, types.GetSetDescriptorType):
-            annotations = {}
-
-        base_locals = dict(vars(base))
-
-        # Match typing.get_type_hints() class behaviour when globalns/localns
-        # are not passed. This reversal is required for backwards compatibility.
-        eval_globals = base_locals
-        eval_locals = {
-            **base_globals,
-            **model_namespace,
-            cls.__name__: cls,
-            base.__name__: base,
-        }
-
-        type_params = getattr(base, "__type_params__", ())
-
-        for name, value in annotations.items():
-            if value is None:
-                value = type(None)
-
-            if isinstance(value, str):
-                value = ForwardRef(
-                    value,
-                    is_argument=False,
-                    is_class=True,
-                )
-
-            hints[name] = _eval_type(
-                value,
-                eval_globals,
-                eval_locals,
-                type_params,
-            )
-
-    if include_extras:
-        return hints
-
-    return {key: _strip_annotations(value) for key, value in hints.items()}
+    return get_type_hints(
+        cls,
+        globalns=globalns,
+        localns=localns,
+        include_extras=include_extras,
+    )
 
 
 def get_resolved_type_hints(model: type[BaseModel]) -> dict[str, object]:

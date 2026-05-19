@@ -1,5 +1,7 @@
+from uuid import UUID
+
 import pytest
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, ConfigDict, computed_field
 from sqlalchemy.orm import registry
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -107,6 +109,20 @@ class PatchResolvedPydanticChild(BaseModel):
     id: int
 
 
+class PatchImportedScalarForwardRefChild(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID | None = None
+    name: str = ""
+
+
+class PatchImportedScalarForwardRefParent(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID | None = None
+    child: "PatchImportedScalarForwardRefChild"
+
+
 def test_patch_resolved_pydantic_forward_refs_are_supported():
     patch_model = Patch[PatchResolvedPydanticParent](
         pick={"id", "child"},
@@ -114,6 +130,28 @@ def test_patch_resolved_pydantic_forward_refs_are_supported():
     )
 
     assert "child" in patch_model.model_fields
+
+
+def test_patch_resolves_forward_refs_with_imported_scalar_annotations():
+    patch_model = Patch[PatchImportedScalarForwardRefParent](
+        pick={"id", "child"},
+        partial={"id", "child"},
+    )
+
+    assert set(patch_model.model_fields) == {"id", "child"}
+
+    payload = patch_model.model_validate(
+        {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "child": {
+                "id": "00000000-0000-0000-0000-000000000002",
+                "name": "child",
+            },
+        }
+    )
+
+    assert payload.child is not None
+    assert payload.child.name == "child"
 
 
 def test_patch_computed_field_forward_ref_raises_custom_error() -> None:

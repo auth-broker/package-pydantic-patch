@@ -73,8 +73,7 @@ def get_augmented_class_type_hints(
                 value,
                 eval_globals,
                 eval_locals,
-                recursive_guard=frozenset(),
-                type_params=type_params,
+                type_params,
             )
 
     if include_extras:

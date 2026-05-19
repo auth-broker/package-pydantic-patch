@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import pytest
 from pydantic import BaseModel, computed_field
 from sqlalchemy.orm import registry
 from sqlmodel import Field, Relationship, SQLModel
+from uuid import UUID
 
 from ab_core.pydantic_patch.core.errors import ForwardReferencesNotSupported
+from ab_core.pydantic_patch.core.type_hints import get_resolved_type_hints
 from ab_core.pydantic_patch.patch import Patch, PatchConfig, create_patch_model
 
 mapper_registry = registry()
@@ -107,6 +111,11 @@ class PatchResolvedPydanticChild(BaseModel):
     id: int
 
 
+class RecursiveTypeHintsModel(BaseModel):
+    id: UUID | None = None
+    children: list[RecursiveTypeHintsModel] = []
+
+
 def test_patch_resolved_pydantic_forward_refs_are_supported():
     patch_model = Patch[PatchResolvedPydanticParent](
         pick={"id", "child"},
@@ -114,6 +123,13 @@ def test_patch_resolved_pydantic_forward_refs_are_supported():
     )
 
     assert "child" in patch_model.model_fields
+
+
+def test_get_resolved_type_hints_handles_recursive_forward_refs_without_type_params() -> None:
+    hints = get_resolved_type_hints(RecursiveTypeHintsModel)
+
+    assert "id" in hints
+    assert "children" in hints
 
 
 def test_patch_computed_field_forward_ref_raises_custom_error() -> None:

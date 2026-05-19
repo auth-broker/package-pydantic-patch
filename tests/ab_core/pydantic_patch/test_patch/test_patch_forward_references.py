@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import pytest
+from uuid import UUID
 from pydantic import BaseModel, computed_field
 from sqlalchemy.orm import registry
 from sqlmodel import Field, Relationship, SQLModel
-from uuid import UUID
 
 from ab_core.pydantic_patch.core.errors import ForwardReferencesNotSupported
 from ab_core.pydantic_patch.core.type_hints import get_resolved_type_hints
@@ -19,7 +19,7 @@ class ForwardRefSQLModel(SQLModel, registry=mapper_registry):
 
 class PatchForwardPydanticParent(BaseModel):
     id: int
-    child: "PatchForwardPydanticChildMissing"
+    child: PatchForwardPydanticChildMissing
 
 
 class PatchForwardPydanticChild(BaseModel):
@@ -29,7 +29,7 @@ class PatchForwardPydanticChild(BaseModel):
 class PatchComputedForwardRefModel(BaseModel):
     @computed_field
     @property
-    def manager(self) -> "PatchMissingManager":
+    def manager(self) -> PatchMissingManager:
         """Return the unresolved computed manager type."""
         raise NotImplementedError
 
@@ -41,7 +41,7 @@ class PatchForwardSqlChild(ForwardRefSQLModel, table=True):
     parent_id: int | None = Field(default=None, foreign_key="patch_forward_sql_parent.id")
     name: str
 
-    parent: "PatchForwardSqlParentMissing | None" = Relationship(back_populates="children")
+    parent: PatchForwardSqlParentMissing | None = Relationship(back_populates="children")
 
 
 class PatchForwardSqlParent(ForwardRefSQLModel, table=True):
@@ -104,7 +104,7 @@ def test_resolved_sqlmodel_relationship_forward_refs_are_supported(operation):
 
 class PatchResolvedPydanticParent(BaseModel):
     id: int
-    child: "PatchResolvedPydanticChild"
+    child: PatchResolvedPydanticChild
 
 
 class PatchResolvedPydanticChild(BaseModel):

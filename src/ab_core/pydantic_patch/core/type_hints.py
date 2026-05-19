@@ -56,8 +56,6 @@ def get_augmented_class_type_hints(
             base.__name__: base,
         }
 
-        type_params = getattr(base, "__type_params__", ())
-
         for name, value in annotations.items():
             if value is None:
                 value = type(None)
@@ -73,7 +71,7 @@ def get_augmented_class_type_hints(
                 value,
                 eval_globals,
                 eval_locals,
-                type_params,
+                recursive_guard=frozenset(),
             )
 
     if include_extras:

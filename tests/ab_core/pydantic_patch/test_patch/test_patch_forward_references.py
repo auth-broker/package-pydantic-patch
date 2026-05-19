@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import pytest
 from uuid import UUID
+
+import pytest
 from pydantic import BaseModel, computed_field
 from sqlalchemy.orm import registry
 from sqlmodel import Field, Relationship, SQLModel

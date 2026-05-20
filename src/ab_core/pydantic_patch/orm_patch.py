@@ -24,11 +24,7 @@ except ImportError:  # pragma: no cover
 
 
 def _provided_values(model: BaseModel) -> dict[str, object]:
-    return {
-        name: getattr(model, name)
-        for name in type(model).model_fields
-        if name in model.model_fields_set
-    }
+    return {name: getattr(model, name) for name in type(model).model_fields if name in model.model_fields_set}
 
 
 def _patch_scalar_value(

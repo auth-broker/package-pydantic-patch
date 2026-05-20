@@ -24,7 +24,7 @@ except ImportError:  # pragma: no cover
 
 
 def _provided_values(model: BaseModel) -> dict[str, object]:
-    return {name: getattr(model, name) for name in model.model_fields_set}
+    return {name: getattr(model, name) for name in type(model).model_fields if name in model.model_fields_set}
 
 
 def _patch_scalar_value(
@@ -63,12 +63,12 @@ def _is_orm_mapped(model_cls: type[Any]) -> bool:
     return _mapper_for(model_cls) is not None
 
 
-def _primary_key_names(model_cls: type[Any]) -> set[str]:
+def _primary_key_names(model_cls: type[Any]) -> tuple[str, ...]:
     mapper = _mapper_for(model_cls)
     if mapper is None:
         raise RuntimeError('SQLAlchemy support is not installed. Install it with: pip install "pydantic-patch[orm]"')
 
-    return {column.key for column in mapper.primary_key}
+    return tuple(column.key for column in mapper.primary_key)
 
 
 def _relationship_map(model_cls: type[Any]) -> dict[str, RelationshipProperty]:
@@ -89,7 +89,7 @@ def _scalar_attribute_names(model_cls: type[Any]) -> set[str]:
 
 def _identity_tuple(
     instance_or_patch: Any,
-    pk_names: set[str],
+    pk_names: tuple[str, ...],
 ) -> tuple[object, ...] | None:
     values: list[object] = []
 

@@ -2,7 +2,7 @@
 
 from typing import Annotated, get_origin
 
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, ConfigDict, create_model
 
 from .computed_field_type_hints import apply_computed_fields_to_payload
 from .field_type_hints import apply_model_fields_to_payload
@@ -33,6 +33,7 @@ def create_model_from_payload(
     created_model = create_model(
         name,
         __base__=BaseModel,
+        __config__=ConfigDict(from_attributes=True),
         __module__=source_model.__module__,
         **payload,
     )  # ty:ignore[no-matching-overload]

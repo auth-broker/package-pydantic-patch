@@ -35,6 +35,7 @@ def dump_orm_model(
     validated = TypeAdapter(null_model).validate_python(
         instance,
         from_attributes=True,
+        by_name=True,
     )
 
     return validated.model_dump(

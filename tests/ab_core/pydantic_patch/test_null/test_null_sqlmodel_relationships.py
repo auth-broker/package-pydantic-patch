@@ -10,7 +10,6 @@ from sqlmodel import Field, Relationship, Session, SQLModel, create_engine
 from ab_core.pydantic_patch.null import Null, create_null_model
 from ab_core.pydantic_patch.orm_dump import dump_orm_model
 
-
 mapper_registry = registry()
 
 

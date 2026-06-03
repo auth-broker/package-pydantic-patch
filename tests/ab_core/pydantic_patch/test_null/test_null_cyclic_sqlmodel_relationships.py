@@ -9,7 +9,6 @@ from ab_core.pydantic_patch.null import Null
 from ab_core.pydantic_patch.orm_dump import dump_orm_model
 from tests.helpers.assert_model import get_list_item_type
 
-
 mapper_registry = registry()
 
 

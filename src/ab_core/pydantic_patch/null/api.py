@@ -7,7 +7,6 @@ This is useful for SQLModel response/dump schemas because SQLModel.model_dump()
 does not include relationship attributes, while the generated Null model does.
 """
 
-
 from pydantic import BaseModel
 
 from ab_core.pydantic_patch.core.operation import Operation

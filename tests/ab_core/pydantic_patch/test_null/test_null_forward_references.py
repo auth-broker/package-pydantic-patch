@@ -27,6 +27,7 @@ class NullComputedForwardRefModel(BaseModel):
     @computed_field
     @property
     def manager(self) -> "NullMissingManager":
+        """Return the manager reference when resolved."""
         raise NotImplementedError
 
 

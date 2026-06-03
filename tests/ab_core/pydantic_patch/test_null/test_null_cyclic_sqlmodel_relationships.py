@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import Optional
 
 from pydantic import BaseModel
+from sqlalchemy.orm import registry
 from sqlmodel import Field, Relationship, SQLModel
 
 from ab_core.pydantic_patch.null import Null
@@ -9,7 +10,14 @@ from ab_core.pydantic_patch.orm_dump import dump_orm_model
 from tests.helpers.assert_model import get_list_item_type
 
 
-class NullCycleContractor(SQLModel, table=True):
+mapper_registry = registry()
+
+
+class NullCycleSQLModel(SQLModel, registry=mapper_registry):
+    __abstract__ = True
+
+
+class NullCycleContractor(NullCycleSQLModel, table=True):
     __tablename__ = "null_cycle_contractor"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -18,7 +26,7 @@ class NullCycleContractor(SQLModel, table=True):
     quotes: list["NullCycleQuote"] = Relationship(back_populates="contractor")
 
 
-class NullCycleQuote(SQLModel, table=True):
+class NullCycleQuote(NullCycleSQLModel, table=True):
     __tablename__ = "null_cycle_quote"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -38,7 +46,7 @@ class NullCycleQuote(SQLModel, table=True):
     )
 
 
-class NullCycleLineItem(SQLModel, table=True):
+class NullCycleLineItem(NullCycleSQLModel, table=True):
     __tablename__ = "null_cycle_line_item"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -54,7 +62,7 @@ class NullCycleLineItem(SQLModel, table=True):
     )
 
 
-class NullCycleTreeNode(SQLModel, table=True):
+class NullCycleTreeNode(NullCycleSQLModel, table=True):
     __tablename__ = "null_cycle_tree_node"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -75,6 +83,11 @@ class NullCycleTreeNode(SQLModel, table=True):
     children: list["NullCycleTreeNode"] = Relationship(
         back_populates="parent",
     )
+
+
+def teardown_module() -> None:
+    mapper_registry.dispose(cascade=True)
+    mapper_registry.metadata.clear()
 
 
 def _unwrap_optional_model(annotation: object) -> type[BaseModel]:

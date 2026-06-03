@@ -3,6 +3,7 @@ from typing import Optional
 
 import pytest
 from pydantic import BaseModel, TypeAdapter
+from sqlalchemy.orm import registry
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Field, Relationship, Session, SQLModel, create_engine
 
@@ -10,7 +11,14 @@ from ab_core.pydantic_patch.null import Null, create_null_model
 from ab_core.pydantic_patch.orm_dump import dump_orm_model
 
 
-class NullContractor(SQLModel, table=True):
+mapper_registry = registry()
+
+
+class NullRelationshipSQLModel(SQLModel, registry=mapper_registry):
+    __abstract__ = True
+
+
+class NullContractor(NullRelationshipSQLModel, table=True):
     __tablename__ = "null_contractor"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -20,7 +28,7 @@ class NullContractor(SQLModel, table=True):
     quotes: list["NullQuote"] = Relationship(back_populates="contractor")
 
 
-class NullQuote(SQLModel, table=True):
+class NullQuote(NullRelationshipSQLModel, table=True):
     __tablename__ = "null_quote"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -41,7 +49,7 @@ class NullQuote(SQLModel, table=True):
     )
 
 
-class NullLineItem(SQLModel, table=True):
+class NullLineItem(NullRelationshipSQLModel, table=True):
     __tablename__ = "null_line_item"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -64,7 +72,7 @@ class NullLineItem(SQLModel, table=True):
     )
 
 
-class NullLineItemDetail(SQLModel, table=True):
+class NullLineItemDetail(NullRelationshipSQLModel, table=True):
     __tablename__ = "null_line_item_detail"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -80,7 +88,7 @@ class NullLineItemDetail(SQLModel, table=True):
     )
 
 
-class NullTreeNode(SQLModel, table=True):
+class NullTreeNode(NullRelationshipSQLModel, table=True):
     __tablename__ = "null_tree_node"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -111,9 +119,14 @@ def engine():
         poolclass=StaticPool,
     )
 
-    SQLModel.metadata.create_all(engine)
+    mapper_registry.metadata.create_all(engine)
 
     return engine
+
+
+def teardown_module() -> None:
+    mapper_registry.dispose(cascade=True)
+    mapper_registry.metadata.clear()
 
 
 @pytest.fixture()

@@ -12,11 +12,13 @@ class NullComputedUser(BaseModel):
     @computed_field
     @property
     def full_name(self) -> str:
+        """Return the user's full name."""
         return f"{self.first_name} {self.last_name}"
 
     @computed_field
     @property
     def is_adult(self) -> bool:
+        """Return whether the user is an adult."""
         return self.age >= 18
 
 

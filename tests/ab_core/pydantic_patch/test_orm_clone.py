@@ -9,7 +9,6 @@ from sqlmodel import Field, Relationship, Session, SQLModel, create_engine
 
 from ab_core.pydantic_patch.orm_clone import recursive_clone_scalar
 
-
 mapper_registry = registry()
 
 

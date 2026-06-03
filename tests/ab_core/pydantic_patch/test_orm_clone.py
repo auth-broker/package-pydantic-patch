@@ -3,13 +3,21 @@ from typing import Optional
 
 import pytest
 from sqlalchemy import inspect
+from sqlalchemy.orm import registry
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Field, Relationship, Session, SQLModel, create_engine
 
 from ab_core.pydantic_patch.orm_clone import recursive_clone_scalar
 
 
-class CloneContractor(SQLModel, table=True):
+mapper_registry = registry()
+
+
+class CloneSQLModel(SQLModel, registry=mapper_registry):
+    __abstract__ = True
+
+
+class CloneContractor(CloneSQLModel, table=True):
     __tablename__ = "orm_clone_contractor"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -19,7 +27,7 @@ class CloneContractor(SQLModel, table=True):
     quotes: list["CloneQuote"] = Relationship(back_populates="contractor")
 
 
-class CloneQuote(SQLModel, table=True):
+class CloneQuote(CloneSQLModel, table=True):
     __tablename__ = "orm_clone_quote"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -36,7 +44,7 @@ class CloneQuote(SQLModel, table=True):
     line_items: list["CloneLineItem"] = Relationship(back_populates="quote")
 
 
-class CloneLineItem(SQLModel, table=True):
+class CloneLineItem(CloneSQLModel, table=True):
     __tablename__ = "orm_clone_line_item"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -56,7 +64,7 @@ class CloneLineItem(SQLModel, table=True):
     )
 
 
-class CloneLineItemDetail(SQLModel, table=True):
+class CloneLineItemDetail(CloneSQLModel, table=True):
     __tablename__ = "orm_clone_line_item_detail"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -70,7 +78,7 @@ class CloneLineItemDetail(SQLModel, table=True):
     line_item: CloneLineItem | None = Relationship(back_populates="detail")
 
 
-class CloneTreeNode(SQLModel, table=True):
+class CloneTreeNode(CloneSQLModel, table=True):
     __tablename__ = "orm_clone_tree_node"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -101,9 +109,14 @@ def engine():
         poolclass=StaticPool,
     )
 
-    SQLModel.metadata.create_all(engine)
+    mapper_registry.metadata.create_all(engine)
 
     return engine
+
+
+def teardown_module() -> None:
+    mapper_registry.dispose(cascade=True)
+    mapper_registry.metadata.clear()
 
 
 @pytest.fixture()

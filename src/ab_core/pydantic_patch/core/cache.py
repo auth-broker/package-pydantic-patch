@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-OperationName = Literal["pick", "omit", "partial", "required", "patch"]
+OperationName = Literal["pick", "omit", "partial", "required", "patch", "null"]
 
 
 @dataclass(frozen=True)

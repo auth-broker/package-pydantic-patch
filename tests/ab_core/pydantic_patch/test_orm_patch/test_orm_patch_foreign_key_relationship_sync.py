@@ -1,5 +1,6 @@
 from typing import Optional
 
+import pytest
 from sqlalchemy.orm import registry
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -186,6 +187,37 @@ def test_recursive_patch_orm_scalar_keeps_existing_relationship_when_foreign_key
     assert child.sort_order == 5
 
 
+def test_recursive_patch_orm_scalar_can_patch_child_found_elsewhere_in_loaded_graph() -> None:
+    parent_a = TreeNode(id=10, parent_id=1, name="Parent A")
+    parent_b = TreeNode(id=11, parent_id=1, name="Parent B")
+    child = TreeNode(id=100, parent_id=11, name="Child")
+
+    root = TreeNode(id=1, name="Root", children=[parent_a, parent_b])
+    parent_b.children = [child]
+
+    patch = TreeNodePatch(
+        id=1,
+        children=[
+            {
+                "id": 10,
+                "children": [
+                    {
+                        "id": 100,
+                        "name": "Patched from wrong collection",
+                    }
+                ],
+            }
+        ],
+    )
+
+    recursive_patch_orm_scalar(root, patch)
+
+    assert child.name == "Patched from wrong collection"
+    assert child.parent is parent_b
+    assert parent_a.children == []
+    assert parent_b.children == [child]
+
+
 class Project(ForeignKeySyncSQLModel, table=True):
     __tablename__ = "orm_patch_fk_sync_project"
 
@@ -337,12 +369,8 @@ def test_recursive_patch_orm_scalar_rejects_foreign_key_move_to_unloaded_target_
         ],
     )
 
-    try:
+    with pytest.raises(ValueError, match="999"):
         recursive_patch_orm_scalar(project, patch)
-    except ValueError as exc:
-        assert "999" in str(exc)
-    else:
-        raise AssertionError("Expected missing FK relationship target to raise ValueError")
 
 
 def teardown_module() -> None:

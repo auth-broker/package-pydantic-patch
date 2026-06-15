@@ -30,6 +30,8 @@ except ImportError:  # pragma: no cover
 
 @dataclass
 class OrmPatchContext:
+    """Context shared across one recursive ORM patch operation."""
+
     identity_map: dict[tuple[type[Any], tuple[object, ...]], Any] = field(default_factory=dict)
 
 

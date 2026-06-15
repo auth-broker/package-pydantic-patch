@@ -1,4 +1,5 @@
 from typing import Optional
+
 from sqlalchemy.orm import registry
 from sqlmodel import Field, Relationship, SQLModel
 

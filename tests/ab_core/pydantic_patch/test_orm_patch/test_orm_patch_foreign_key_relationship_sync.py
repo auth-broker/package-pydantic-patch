@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+from typing import Optional
 from sqlalchemy.orm import registry
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -25,13 +24,13 @@ class TreeNode(ForeignKeySyncSQLModel, table=True):
     name: str = ""
     sort_order: int = 0
 
-    parent: TreeNode | None = Relationship(
+    parent: Optional["TreeNode"] = Relationship(
         back_populates="children",
         sa_relationship_kwargs={
             "remote_side": "TreeNode.id",
         },
     )
-    children: list[TreeNode] = Relationship(back_populates="parent")
+    children: list["TreeNode"] = Relationship(back_populates="parent")
 
 
 TreeNodePatch = Patch[TreeNode](
@@ -192,7 +191,7 @@ class Project(ForeignKeySyncSQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str = ""
 
-    milestones: list[Milestone] = Relationship(back_populates="project")
+    milestones: list["Milestone"] = Relationship(back_populates="project")
 
 
 class Milestone(ForeignKeySyncSQLModel, table=True):
@@ -206,8 +205,8 @@ class Milestone(ForeignKeySyncSQLModel, table=True):
 
     name: str = ""
 
-    project: Project | None = Relationship(back_populates="milestones")
-    tasks: list[Task] = Relationship(back_populates="milestone")
+    project: Optional["Project"] = Relationship(back_populates="milestones")
+    tasks: list["Task"] = Relationship(back_populates="milestone")
 
 
 class Task(ForeignKeySyncSQLModel, table=True):
@@ -221,7 +220,7 @@ class Task(ForeignKeySyncSQLModel, table=True):
 
     title: str = ""
 
-    milestone: Milestone | None = Relationship(back_populates="tasks")
+    milestone: Optional["Milestone"] = Relationship(back_populates="tasks")
 
 
 ProjectPatch = Patch[Project](

@@ -187,7 +187,7 @@ def test_recursive_patch_orm_scalar_keeps_existing_relationship_when_foreign_key
     assert child.sort_order == 5
 
 
-def test_recursive_patch_orm_scalar_can_patch_child_found_elsewhere_in_loaded_graph() -> None:
+def test_recursive_patch_orm_scalar_can_patch_existing_child_found_elsewhere_in_loaded_graph() -> None:
     parent_a = TreeNode(id=10, parent_id=1, name="Parent A")
     parent_b = TreeNode(id=11, parent_id=1, name="Parent B")
     child = TreeNode(id=100, parent_id=11, name="Child")
@@ -203,7 +203,7 @@ def test_recursive_patch_orm_scalar_can_patch_child_found_elsewhere_in_loaded_gr
                 "children": [
                     {
                         "id": 100,
-                        "name": "Patched from wrong collection",
+                        "name": "Patched through graph lookup",
                     }
                 ],
             }
@@ -212,10 +212,139 @@ def test_recursive_patch_orm_scalar_can_patch_child_found_elsewhere_in_loaded_gr
 
     recursive_patch_orm_scalar(root, patch)
 
-    assert child.name == "Patched from wrong collection"
+    assert child.name == "Patched through graph lookup"
     assert child.parent is parent_b
     assert parent_a.children == []
     assert parent_b.children == [child]
+
+
+def test_recursive_patch_orm_scalar_applies_scalar_edits_after_foreign_key_move() -> None:
+    source_parent = TreeNode(id=10, parent_id=1, name="Source")
+    target_parent = TreeNode(id=11, parent_id=1, name="Target")
+    child = TreeNode(id=100, parent_id=10, name="Before", sort_order=0)
+
+    root = TreeNode(id=1, name="Root", children=[source_parent, target_parent])
+    source_parent.children = [child]
+
+    patch = TreeNodePatch(
+        id=1,
+        children=[
+            {
+                "id": 10,
+                "children": [
+                    {
+                        "id": 100,
+                        "parent_id": 11,
+                        "name": "After",
+                        "sort_order": 7,
+                    }
+                ],
+            }
+        ],
+    )
+
+    recursive_patch_orm_scalar(root, patch)
+
+    assert child.parent is target_parent
+    assert child.parent_id == 11
+    assert child.name == "After"
+    assert child.sort_order == 7
+
+
+def test_recursive_patch_orm_scalar_patches_non_relationship_scalar_normally() -> None:
+    node = TreeNode(id=1, name="Before", sort_order=1)
+
+    patch = TreeNodePatch(
+        id=1,
+        name="After",
+        sort_order=2,
+    )
+
+    recursive_patch_orm_scalar(node, patch)
+
+    assert node.name == "After"
+    assert node.sort_order == 2
+
+
+def test_recursive_patch_orm_scalar_rejects_unknown_existing_child_identity() -> None:
+    parent = TreeNode(id=10, parent_id=1, name="Parent")
+    root = TreeNode(id=1, name="Root", children=[parent])
+
+    patch = TreeNodePatch(
+        id=1,
+        children=[
+            {
+                "id": 10,
+                "children": [
+                    {
+                        "id": 999,
+                        "name": "Missing child",
+                    }
+                ],
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="999"):
+        recursive_patch_orm_scalar(root, patch)
+
+
+def test_recursive_patch_orm_scalar_still_appends_new_child_without_identity() -> None:
+    parent = TreeNode(id=10, parent_id=1, name="Parent")
+    root = TreeNode(id=1, name="Root", children=[parent])
+
+    patch = TreeNodePatch(
+        id=1,
+        children=[
+            {
+                "id": 10,
+                "children": [
+                    {
+                        "name": "New child",
+                        "sort_order": 3,
+                    }
+                ],
+            }
+        ],
+    )
+
+    recursive_patch_orm_scalar(root, patch)
+
+    assert len(parent.children) == 1
+    assert parent.children[0].id is None
+    assert parent.children[0].name == "New child"
+    assert parent.children[0].sort_order == 3
+    assert parent.children[0].parent is parent
+
+
+def test_recursive_patch_orm_scalar_indexes_cyclic_graph_without_recursion_error() -> None:
+    parent = TreeNode(id=10, parent_id=1, name="Parent")
+    child = TreeNode(id=100, parent_id=10, name="Child")
+
+    root = TreeNode(id=1, name="Root", children=[parent])
+    parent.children = [child]
+
+    patch = TreeNodePatch(
+        id=1,
+        children=[
+            {
+                "id": 10,
+                "name": "Patched parent",
+                "children": [
+                    {
+                        "id": 100,
+                        "name": "Patched child",
+                    }
+                ],
+            }
+        ],
+    )
+
+    recursive_patch_orm_scalar(root, patch)
+
+    assert parent.name == "Patched parent"
+    assert child.name == "Patched child"
+    assert child.parent is parent
 
 
 class Project(ForeignKeySyncSQLModel, table=True):

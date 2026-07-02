@@ -17,6 +17,7 @@ class HybridPropertyUser(SQLModel, table=True):
 
     @full_name.expression
     def full_name(cls):
+        """Return SQL expression for full name."""
         return cls.first_name + " " + cls.last_name
 
     @hybrid_property
@@ -26,6 +27,7 @@ class HybridPropertyUser(SQLModel, table=True):
 
     @is_adult.expression
     def is_adult(cls):
+        """Return SQL expression for adult status."""
         return cls.age >= 18
 
 

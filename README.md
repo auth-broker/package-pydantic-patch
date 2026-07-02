@@ -655,6 +655,94 @@ When using `recursive_patch_orm_scalar(...)`, computed fields from patch payload
 
 ---
 
+### SQLModel Hybrid Properties
+
+`pydantic-patch` supports SQLAlchemy `@hybrid_property` descriptors on SQLModel
+classes.
+
+Hybrid properties are treated like regular generated model fields, so they can
+be selected, omitted, made optional, or made required using `Pick`, `Omit`,
+`Partial`, `Required`, and `Patch`. Their return annotations are used as the
+generated Pydantic field type.
+
+#### Python
+
+**Before**
+
+```python
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlmodel import Field, SQLModel
+
+
+class User(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    first_name: str
+    last_name: str
+    age: int
+
+    @hybrid_property
+    def full_name(self) -> str:
+        return f"{self.first_name} {self.last_name}"
+
+    @full_name.expression
+    def full_name(cls):
+        return cls.first_name + " " + cls.last_name
+
+    @hybrid_property
+    def is_adult(self) -> bool:
+        return self.age >= 18
+
+    @is_adult.expression
+    def is_adult(cls):
+        return cls.age >= 18
+```
+
+---
+
+**Transform**
+
+```python
+UserPatch = Patch[User](
+    pick={"first_name", "last_name", "age", "full_name", "is_adult"},
+    partial={"first_name", "last_name", "age"},
+    required={"full_name", "is_adult"},
+)
+```
+
+---
+
+**After (conceptual)**
+
+```python
+class UserPatch(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+    age: int | None = None
+    full_name: str
+    is_adult: bool
+```
+
+---
+
+Hybrid properties become part of the generated model payload, which means they:
+
+* participate in `pick` / `omit`
+* can be made optional with `partial`
+* can be forced required with `required`
+* can be validated from ORM objects via `from_attributes`
+* preserve the original SQLAlchemy hybrid descriptor on the source model
+
+Required hybrid properties can also be derived from dict input when the source
+SQLModel can be validated from that same payload.
+
+For a runnable FastAPI example, see:
+
+```shell
+uv run python src/ab_core/pydantic_patch/examples/sqlmodel_examples/sqlmodel_hybrid_properties.py
+```
+
+---
+
 ## Additional Notes
 
 ### Caching
@@ -698,7 +786,7 @@ Applied in this order:
 * `list[...]`
 * `dict[...]`
 * `Union` / `Annotated`
-* SQLModel (including relationships)
+* SQLModel (including relationships and hybrid properties)
 
 ---
 

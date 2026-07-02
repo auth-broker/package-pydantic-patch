@@ -1,5 +1,15 @@
 """Pydantic model transformation helpers for pick/omit/partial/required/patch."""
 
+try:
+    from sqlalchemy.ext.hybrid import hybrid_property
+    from sqlmodel import SQLModel
+except ImportError:
+    pass
+else:
+    ignored_types = SQLModel.model_config.get("ignored_types", ())
+    if hybrid_property not in ignored_types:
+        SQLModel.model_config["ignored_types"] = (*ignored_types, hybrid_property)
+
 from ab_core.pydantic_patch.null import Null, NullConfig, create_null_model
 from ab_core.pydantic_patch.omit import Omit, OmitConfig, create_omit_model
 from ab_core.pydantic_patch.partial import Partial, PartialConfig, create_partial_model

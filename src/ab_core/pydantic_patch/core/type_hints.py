@@ -22,6 +22,10 @@ from .computed_field_type_hints import (
     computed_field_contains_forward_ref,
     iter_computed_field_infos,
 )
+from .hybrid_property_type_hints import (
+    hybrid_property_contains_forward_ref,
+    iter_hybrid_property_infos,
+)
 
 
 def get_augmented_class_type_hints(
@@ -105,6 +109,15 @@ def unresolved_computed_field_names(model: type[BaseModel]) -> list[str]:
     )
 
 
+def unresolved_hybrid_property_names(model: type[BaseModel]) -> list[str]:
+    """Return hybrid properties with unresolved return annotations."""
+    return sorted(
+        field_name
+        for field_name, hybrid_property_info in iter_hybrid_property_infos(model)
+        if hybrid_property_contains_forward_ref(model, hybrid_property_info)
+    )
+
+
 def assert_no_forward_refs(model: type[BaseModel]) -> None:
     """Raise only when forward references cannot actually be resolved."""
     get_resolved_type_hints(model)
@@ -116,5 +129,15 @@ def assert_no_forward_refs(model: type[BaseModel]) -> None:
             build_forward_ref_error_message(
                 model=model,
                 unresolved_fields=unresolved_computed_fields,
+            )
+        )
+
+    unresolved_hybrid_properties = unresolved_hybrid_property_names(model)
+
+    if unresolved_hybrid_properties:
+        raise ForwardReferencesNotSupported(
+            build_forward_ref_error_message(
+                model=model,
+                unresolved_fields=unresolved_hybrid_properties,
             )
         )

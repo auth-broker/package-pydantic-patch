@@ -12,6 +12,7 @@ from ab_core.pydantic_patch.core.errors import (
     InvalidPatchFieldError,
 )
 from ab_core.pydantic_patch.core.field_type_hints import iter_model_field_infos
+from ab_core.pydantic_patch.core.hybrid_property_type_hints import iter_hybrid_property_infos
 from ab_core.pydantic_patch.core.orm_type_hints import iter_orm_relationship_names
 from ab_core.pydantic_patch.core.payload_types import CreateModelField, CreateModelPayload
 from ab_core.pydantic_patch.core.types import Any
@@ -22,6 +23,7 @@ def get_source_field_names(model: type[BaseModel]) -> set[str]:
     return {
         *(field_name for field_name, _ in iter_model_field_infos(model)),
         *(field_name for field_name, _ in iter_computed_field_infos(model)),
+        *(field_name for field_name, _ in iter_hybrid_property_infos(model)),
         *iter_orm_relationship_names(model),
     }
 

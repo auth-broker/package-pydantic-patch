@@ -17,7 +17,7 @@ Python Pydantic support of TypeScript-style utility types, including Partial, Re
 
 🦜🕸️
 
-[![CI](https://github.com/auth-broker/package-pydantic-patch/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/auth-broker/package-pydantic-patch/actions/workflows/ci.yaml)
+[![CI](https://github.com/mattcoulter7/pydantic-patch/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/mattcoulter7/pydantic-patch/actions/workflows/ci.yaml)
 
 </div>
 
@@ -74,15 +74,6 @@ Here are a list of available commands via make.
 1. `make install` - install the required dependencies.
 2. `make test` - runs the tests.
 
-### Docker
-
-1. `make build-docker` - build the docker image.
-2. `make run-docker` - run the docker compose services.
-3. `make test-docker` - run the tests in docker.
-4. `make clean-docker` - remove all docker containers etc.
-
-______________________________________________________________________
-
 ## Installation
 
 ### For Dev work on the repo
@@ -112,18 +103,11 @@ If you are adding a new dev dependency, please run:
 uv add --dev {your-new-package}
 ```
 
-### Namespaces
-
-Packages all share the same namespace `ab_core`. To import this package into
-your project:
+### Importing
 
 ```python
-from ab_core.template import placeholder_func
+from pydantic_patch.patch import Patch, PatchConfig
 ```
-
-We encourage you to make your package available to all of ab via this
-`ab_core` namespace. The goal is to streamline development, POCs and overall
-collaboration.
 
 ______________________________________________________________________
 
@@ -137,7 +121,7 @@ command:
 **Using pip**:
 
 ```shell
-pip install ab-pydantic-patch
+pip install pydantic-patch
 ```
 
 **Using UV**
@@ -148,7 +132,7 @@ provide the full url. https://github.com/astral-sh/uv/issues/10140
 Add the dependency
 
 ```shell
-uv add ab-pydantic-patch
+uv add pydantic-patch
 ```
 
 **Using poetry**:
@@ -156,7 +140,7 @@ uv add ab-pydantic-patch
 Then run the following command to install the package:
 
 ```shell
-poetry add ab-pydantic-patch
+poetry add pydantic-patch
 ```
 
 ## How Tos
@@ -436,7 +420,7 @@ HouseholdPatch = Patch[Household](
             pick={"id", "name"},
             partial={"name"},
         )
-    }
+    },
 )
 ```
 
@@ -503,7 +487,7 @@ OwnerPatch = Patch[Owner](
             pick={"kind", "id", "name"},
             partial={"name"},
         ),
-    }
+    },
 )
 ```
 
@@ -524,10 +508,7 @@ class DogPatch(BaseModel):
     name: str | None = None
 
 
-PetPatch = Annotated[
-    CatPatch | DogPatch,
-    Field(discriminator="kind")
-]
+PetPatch = Annotated[CatPatch | DogPatch, Field(discriminator="kind")]
 
 
 class OwnerPatch(BaseModel):
@@ -569,7 +550,7 @@ HouseholdPatch = Patch[Household](
         Pet: PatchConfig(
             pick={"id", "name"},
         )
-    }
+    },
 )
 ```
 
@@ -738,7 +719,7 @@ SQLModel can be validated from that same payload.
 For a runnable FastAPI example, see:
 
 ```shell
-uv run python src/ab_core/pydantic_patch/examples/sqlmodel_examples/sqlmodel_hybrid_properties.py
+uv run python src/pydantic_patch/examples/sqlmodel_examples/sqlmodel_hybrid_properties.py
 ```
 
 ---
@@ -835,7 +816,7 @@ Then import from that package before creating patch schemas:
 
 ```python
 from my_app.models import Project, ProjectMilestone, ProjectTask, TaskComment
-from ab_core.pydantic_patch.patch import Patch, PatchConfig
+from pydantic_patch.patch import Patch, PatchConfig
 
 ProjectPatch = Patch[Project](
     pick={"id", "name", "milestones"},
@@ -927,8 +908,8 @@ nested tasks, comments, folders, and other hierarchical data.
 ```python
 from sqlmodel import Field, Relationship, SQLModel
 
-from ab_core.pydantic_patch.orm_patch import recursive_patch_orm_scalar
-from ab_core.pydantic_patch.patch import Patch, PatchConfig
+from pydantic_patch.orm_patch import recursive_patch_orm_scalar
+from pydantic_patch.patch import Patch, PatchConfig
 
 
 class QuoteLineItem(SQLModel, table=True):
@@ -945,8 +926,6 @@ class QuoteLineItem(SQLModel, table=True):
         },
     )
     children: list["QuoteLineItem"] = Relationship(back_populates="parent")
-
-
 ```
 
 For SQLModel relationships, keep the relationship target annotation as
@@ -1029,7 +1008,7 @@ In this layout:
 For a runnable example, see:
 
 ```shell
-uv run python src/ab_core/pydantic_patch/examples/sqlmodel_examples/self_referencing_tree.py
+uv run python src/pydantic_patch/examples/sqlmodel_examples/self_referencing_tree.py
 ```
 
 ______________________________________________________________________
@@ -1059,4 +1038,4 @@ We publish to PyPI using Github releases. Steps are as follows:
    will trigger the `publish` workflow. In the Release window, type in the
    version number and it will prompt to create a new tag.
 3. Verify the release in
-   [PyPI](https://pypi.org/project/ab-pydantic-patch/)
+   [PyPI](https://pypi.org/project/pydantic-patch/)

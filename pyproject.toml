@@ -8,11 +8,10 @@ dev = [
   "isort>=6.0.1,<7",
   "ab-test-fixtures>=0.1.5,<0.2.0",
   "pre-commit>=4.2.0,<5",
-  "pytest-asyncio>=1.0.0,<2",
-  "pytest-cov>=6.2.1,<7",
+  "pytest-asyncio>=1.4.0,<2",
+  "pytest-cov>=7.1.0,<8",
   "pytest>=8.4.1,<9",
-  "ruff>=0.12.3,<0.13",
-  "tox>=4.27.0,<5",
+  "ruff>=0.12.3,<0.17",
   "uvicorn>=0.46.0",
   "fastapi>=0.136.1",
   "sqlmodel>=0.0.24",
@@ -25,7 +24,7 @@ dependencies = [
     "pydantic>=2",
 ]
 description = "Python Pydantic support of TypeScript-style utility types, including Partial, Required, Pick, and Omit. Useful for PATCH endpoints driven from BaseModel / SQLModel classes."
-name = "ab-pydantic-patch"
+name = "pydantic-patch"
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
 version = "1.5.0"
@@ -36,13 +35,10 @@ orm = [
 ]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/ab_core"]
+include = ["src/pydantic_patch"]
 
 [tool.hatch.build.targets.wheel]
-include = ["src/ab_core"]
-
-[tool.hatch.build.targets.wheel.sources]
-"src/ab_core" = "ab_core"
+packages = ["src/pydantic_patch"]
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "session"
@@ -61,7 +57,8 @@ target-version = "py312"
 exclude = [".git", ".venv", "__pycache__", "proto"]
 fixable = ["ALL"]
 ignore = [
-  "D104" # missing docstring in public package
+  "D104", # missing docstring in public package
+  "UP047" # keep TypeVar-style generic functions for Python 3.12 readability
 ]
 select = [
   "ARG001", # unused arguments
@@ -77,4 +74,4 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["D100", "D101", "D103", "F821"]
-"src/ab_core/pydantic_patch/examples/**/*.py" = ["D100", "D101", "D103", "F821"]
+"src/pydantic_patch/examples/**/*.py" = ["D100", "D101", "D103", "F821"]

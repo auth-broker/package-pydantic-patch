@@ -27,6 +27,7 @@ ______________________________________________________________________
 
 <!-- toc -->
 
+- [Migration from auth-broker](#migration-from-auth-broker)
 - [Introduction](#introduction)
 - [Quick Start](#quick-start)
 - [Installation](#installation)
@@ -37,6 +38,21 @@ ______________________________________________________________________
 <!-- tocstop -->
 
 ______________________________________________________________________
+
+## Migration from auth-broker
+
+As of `pydantic-patch` version `1.5.1`, this package has moved out of the
+`auth-broker` organisation, been renamed, and had its import namespace updated.
+
+| Item | Previous | Current |
+| --- | --- | --- |
+| GitHub repository | [`auth-broker/package-pydantic-patch`](https://github.com/auth-broker/package-pydantic-patch) | [`mattcoulter7/pydantic-patch`](https://github.com/mattcoulter7/pydantic-patch) |
+| PyPI package | [`ab-pydantic-patch`](https://pypi.org/project/ab-pydantic-patch/) | [`pydantic-patch`](https://pypi.org/project/pydantic-patch/) |
+| Install command | `pip install ab-pydantic-patch` | `pip install pydantic-patch` |
+| Import namespace | `ab_core.pydantic_patch` | `pydantic_patch` |
+
+The old PyPI package is retained as an archived historical package. New work
+should use `pydantic-patch` and `pydantic_patch`.
 
 ## Introduction
 

@@ -109,6 +109,94 @@ class DumpTreeNode(DumpSQLModel, table=True):
     )
 
 
+class DumpValidatedQuote(DumpSQLModel, table=True):
+    __tablename__ = "orm_dump_validated_quote"
+
+    id: int | None = Field(default=None, primary_key=True)
+    quote_number: str
+
+    line_items: list["DumpValidatedComparison"] = Relationship(
+        back_populates="quote",
+    )
+    checks: list["DumpValidationCheck"] = Relationship(
+        back_populates="quote",
+    )
+
+
+class DumpValidatedComparison(DumpSQLModel, table=True):
+    __tablename__ = "orm_dump_validated_comparison"
+
+    id: int | None = Field(default=None, primary_key=True)
+
+    quote_id: int | None = Field(
+        default=None,
+        foreign_key="orm_dump_validated_quote.id",
+    )
+
+    quote: Optional["DumpValidatedQuote"] = Relationship(
+        back_populates="line_items",
+    )
+    quote_line_item: Optional["DumpValidatedLineItem"] = Relationship(
+        back_populates="comparison",
+        sa_relationship_kwargs={"uselist": False},
+    )
+
+
+class DumpValidatedLineItem(DumpSQLModel, table=True):
+    __tablename__ = "orm_dump_validated_line_item"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
+
+    comparison_id: int | None = Field(
+        default=None,
+        foreign_key="orm_dump_validated_comparison.id",
+    )
+    parent_id: int | None = Field(
+        default=None,
+        foreign_key="orm_dump_validated_line_item.id",
+    )
+
+    comparison: Optional["DumpValidatedComparison"] = Relationship(
+        back_populates="quote_line_item",
+    )
+    parent: Optional["DumpValidatedLineItem"] = Relationship(
+        back_populates="children",
+        sa_relationship_kwargs={
+            "remote_side": "DumpValidatedLineItem.id",
+        },
+    )
+    children: list["DumpValidatedLineItem"] = Relationship(
+        back_populates="parent",
+    )
+    checks: list["DumpValidationCheck"] = Relationship(
+        back_populates="quote_line_item",
+    )
+
+
+class DumpValidationCheck(DumpSQLModel, table=True):
+    __tablename__ = "orm_dump_validation_check"
+
+    id: int | None = Field(default=None, primary_key=True)
+    message: str
+
+    quote_id: int | None = Field(
+        default=None,
+        foreign_key="orm_dump_validated_quote.id",
+    )
+    quote_line_item_id: int | None = Field(
+        default=None,
+        foreign_key="orm_dump_validated_line_item.id",
+    )
+
+    quote: Optional["DumpValidatedQuote"] = Relationship(
+        back_populates="checks",
+    )
+    quote_line_item: Optional["DumpValidatedLineItem"] = Relationship(
+        back_populates="checks",
+    )
+
+
 @pytest.fixture()
 def engine():
     engine = create_engine(
@@ -436,6 +524,65 @@ def test_dump_orm_model_self_referencing_tree_excludes_parent_but_keeps_parent_i
             }
         ],
     }
+
+
+def test_dump_orm_model_excludes_cycles_through_shared_nested_model_types() -> None:
+    quote = DumpValidatedQuote(id=1, quote_number="Q-VALIDATED")
+    comparison = DumpValidatedComparison(id=10, quote=quote, quote_id=1)
+    parent_item = DumpValidatedLineItem(
+        id=20,
+        name="Parent item",
+        comparison=comparison,
+        comparison_id=10,
+    )
+    child_item = DumpValidatedLineItem(
+        id=21,
+        name="Child item",
+        parent=parent_item,
+        parent_id=20,
+    )
+    check = DumpValidationCheck(
+        id=30,
+        message="Fence height was inferred.",
+        quote=quote,
+        quote_id=1,
+        quote_line_item=parent_item,
+        quote_line_item_id=20,
+    )
+
+    quote.line_items = [comparison]
+    quote.checks = [check]
+    comparison.quote_line_item = parent_item
+    parent_item.children = [child_item]
+    parent_item.checks = [check]
+
+    payload = dump_orm_model(quote)
+
+    assert payload["quote_number"] == "Q-VALIDATED"
+    assert payload["line_items"][0]["quote_line_item"]["children"] == [
+        {
+            "id": 21,
+            "name": "Child item",
+            "comparison_id": None,
+            "parent_id": 20,
+            "children": [],
+            "checks": [],
+        }
+    ]
+    check_payload = payload["checks"][0]
+
+    assert check_payload["id"] == 30
+    assert check_payload["message"] == "Fence height was inferred."
+    assert check_payload["quote_id"] == 1
+    assert check_payload["quote_line_item_id"] == 20
+    assert "quote" not in check_payload
+
+    check_line_item_payload = check_payload["quote_line_item"]
+
+    assert check_line_item_payload["id"] == 20
+    assert "checks" not in check_line_item_payload
+    assert "parent" not in check_line_item_payload
+    assert "parent" not in check_line_item_payload["children"][0]
 
 
 def test_dump_orm_model_persisted_graph_loaded_from_database(engine) -> None:

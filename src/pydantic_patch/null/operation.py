@@ -115,13 +115,13 @@ def relationship_creates_backref_cycle(
     """Return whether a relationship points back to an ancestor model."""
     target_model = relationship.mapper.class_
 
-    if target_model not in ancestor_models:
-        return False
-
     is_self_relationship = target_model is current_model
     is_one_to_many = relationship.direction.name == "ONETOMANY"
 
-    if is_self_relationship and is_one_to_many:
+    if is_self_relationship:
+        return not is_one_to_many
+
+    if target_model not in ancestor_models:
         return False
 
     return True

@@ -27,7 +27,7 @@ description = "Python Pydantic support of TypeScript-style utility types, includ
 name = "pydantic-patch"
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
-version = "1.5.1"
+version = "1.5.2"
 
 [project.optional-dependencies]
 orm = [
